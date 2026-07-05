@@ -658,7 +658,18 @@ const AVATAR_ACCESSORIES = [
   {key:'none', label:'Ninguno'},
   {key:'glasses', label:'Lentes'},
 ];
-let selectedAvatar = { skin: AVATAR_SKINS[0], hair: 'short', hairColor: AVATAR_HAIR_COLORS[0], accessory: 'none' };
+const AVATAR_GENDERS = [
+  {key:'masculino', label:'Masculino'},
+  {key:'femenino', label:'Femenino'},
+  {key:'neutro', label:'Prefiero no decir'},
+];
+const AVATAR_BEARDS = [
+  {key:'none', label:'Sin barba'},
+  {key:'short', label:'Corta'},
+  {key:'long', label:'Larga'},
+  {key:'mustache', label:'Bigote'},
+];
+let selectedAvatar = { skin: AVATAR_SKINS[0], hair: 'short', hairColor: AVATAR_HAIR_COLORS[0], accessory: 'none', gender:'neutro', beard:'none' };
 
 function buildAvatarSVG(avatar, size){
   avatar = avatar || selectedAvatar;
@@ -677,11 +688,30 @@ function buildAvatarSVG(avatar, size){
   const glasses = avatar.accessory==='glasses'
     ? `<circle cx="11" cy="17" r="3.4" fill="none" stroke="#2b2b2b" stroke-width="1.4"/><circle cx="21" cy="17" r="3.4" fill="none" stroke="#2b2b2b" stroke-width="1.4"/><line x1="14.4" y1="17" x2="17.6" y2="17" stroke="#2b2b2b" stroke-width="1.4"/>`
     : '';
-  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" style="border-radius:50%;background:#1c2024;flex-shrink:0;">
-    <circle cx="16" cy="18" r="13" fill="${skin}"/>
-    <circle cx="11" cy="17" r="1.4" fill="#2b2b2b"/>
-    <circle cx="21" cy="17" r="1.4" fill="#2b2b2b"/>
-    <path d="M12 23 Q16 26 20 23" stroke="#7a4a3a" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+  let beardShape = '';
+  switch(avatar.beard){
+    case 'short': beardShape = `<path d="M9 19 Q9 26 16 27 Q23 26 23 19 Q23 24 16 24.5 Q9 24 9 19 Z" fill="${hairColor}" opacity="0.92"/>`; break;
+    case 'long': beardShape = `<path d="M8 18 Q7 29 16 31 Q25 29 24 18 Q24 26 16 27 Q8 26 8 18 Z" fill="${hairColor}" opacity="0.92"/>`; break;
+    case 'mustache': beardShape = `<path d="M11.5 20.5 Q16 22.5 20.5 20.5 Q19 21.8 16 21.8 Q13 21.8 11.5 20.5 Z" fill="${hairColor}"/>`; break;
+    default: beardShape = '';
+  }
+  // hombros / cuerpo según género (silueta simple, decorativa)
+  let shoulders = '';
+  const shirtColor = '#3a4147';
+  if(avatar.gender==='masculino'){
+    shoulders = `<path d="M2 34 Q2 25 10 24 L22 24 Q30 25 30 34 Z" fill="${shirtColor}"/>`;
+  } else if(avatar.gender==='femenino'){
+    shoulders = `<path d="M5 34 Q4 26 11 25 L21 25 Q28 26 27 34 Z" fill="${shirtColor}"/>`;
+  } else {
+    shoulders = `<path d="M3 34 Q3 26 10.5 24.5 L21.5 24.5 Q29 26 29 34 Z" fill="${shirtColor}"/>`;
+  }
+  return `<svg viewBox="0 0 32 34" width="${size}" height="${size}" style="border-radius:50%;background:#1c2024;flex-shrink:0;">
+    ${shoulders}
+    <circle cx="16" cy="17" r="13" fill="${skin}"/>
+    <circle cx="11" cy="16" r="1.4" fill="#2b2b2b"/>
+    <circle cx="21" cy="16" r="1.4" fill="#2b2b2b"/>
+    <path d="M12 22 Q16 25 20 22" stroke="#7a4a3a" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    ${beardShape}
     ${hairShape}
     ${glasses}
   </svg>`;
@@ -691,17 +721,29 @@ function renderAvatarBuilder(containerId, avatarState, onChange){
   if(!wrap) return;
   wrap.innerHTML = `
     <div style="display:flex;justify-content:center;margin-bottom:12px;" id="${containerId}_preview"></div>
+    <label class="login-field-label">Género</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="${containerId}_gender"></div>
     <label class="login-field-label">Tono de piel</label>
     <div style="display:flex;gap:8px;margin-bottom:12px;" id="${containerId}_skin"></div>
     <label class="login-field-label">Peinado</label>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="${containerId}_hair"></div>
     <label class="login-field-label">Color de pelo</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;" id="${containerId}_haircolor"></div>
+    <label class="login-field-label">Barba</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="${containerId}_beard"></div>
     <label class="login-field-label">Accesorio</label>
     <div style="display:flex;gap:6px;margin-bottom:4px;" id="${containerId}_accessory"></div>
   `;
   function refresh(){
     document.getElementById(containerId+'_preview').innerHTML = buildAvatarSVG(avatarState, 72);
+    const genderBox = document.getElementById(containerId+'_gender'); genderBox.innerHTML='';
+    AVATAR_GENDERS.forEach(g=>{
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (avatarState.gender===g.key?' active':'');
+      btn.textContent = g.label; btn.type='button';
+      btn.onclick = ()=>{ avatarState.gender = g.key; onChange(); refresh(); };
+      genderBox.appendChild(btn);
+    });
     const skinBox = document.getElementById(containerId+'_skin'); skinBox.innerHTML='';
     AVATAR_SKINS.forEach(color=>{
       const sw = document.createElement('div');
@@ -725,6 +767,14 @@ function renderAvatarBuilder(containerId, avatarState, onChange){
       sw.style.background = color; sw.style.width='26px'; sw.style.height='26px';
       sw.onclick = ()=>{ avatarState.hairColor = color; onChange(); refresh(); };
       hcBox.appendChild(sw);
+    });
+    const beardBox = document.getElementById(containerId+'_beard'); beardBox.innerHTML='';
+    AVATAR_BEARDS.forEach(b=>{
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (avatarState.beard===b.key?' active':'');
+      btn.textContent = b.label; btn.type='button';
+      btn.onclick = ()=>{ avatarState.beard = b.key; onChange(); refresh(); };
+      beardBox.appendChild(btn);
     });
     const accBox = document.getElementById(containerId+'_accessory'); accBox.innerHTML='';
     AVATAR_ACCESSORIES.forEach(a=>{
@@ -1435,7 +1485,7 @@ function renderPoolGrid(){
 }
 
 function openAvatarEditModal(){
-  const editAvatar = { ...(appData.profile.avatar || selectedAvatar) };
+  const editAvatar = Object.assign({ skin:AVATAR_SKINS[0], hair:'short', hairColor:AVATAR_HAIR_COLORS[0], accessory:'none', gender:'neutro', beard:'none' }, appData.profile.avatar || {});
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
   modal.innerHTML = `
