@@ -326,8 +326,8 @@
           <option value="avanzado">Avanzado</option>
         </select>
 
-        <label class="login-field-label">Elige un color de perfil</label>
-        <div id="avatarPicker" style="display:flex;gap:8px;margin-bottom:16px;"></div>
+        <label class="login-field-label">Crea tu avatar</label>
+        <div id="regAvatarBuilder" style="margin-bottom:6px;"></div>
 
         <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-dim);margin-bottom:16px;cursor:pointer;">
           <input type="checkbox" id="regTerms" style="margin-top:2px;">
@@ -602,7 +602,7 @@ let state = {
   tab: "pool",
   pool: { group: "todos", search: "", open: null },
   rutinas: { view: "list", generated: {}, builderName: "", builderSelected: [], activeSession: null, _builderGroup:"todos", community: null, sessionNote: "" },
-  progreso: { chartExId: null, leaderboard: null, monthly: null, activity: null }
+  progreso: { chartExId: null, leaderboard: null, monthly: null, activity: null, members: null }
 };
 
 let restTimer = { active:false, remaining:0, total:90, intervalId:null };
@@ -642,21 +642,101 @@ function translateAuthError(code){
 
 let loginMode = 'login'; // 'login' | 'register'
 let pendingProfile = null;
-const AVATAR_COLORS = ['#7fd858','#5b9bd5','#e0a458','#d76b6b','#9b7fd5','#e0b84a'];
-let selectedAvatarColor = AVATAR_COLORS[0];
 
-function renderAvatarPicker(){
-  const wrap = document.getElementById('avatarPicker');
-  wrap.innerHTML = '';
-  AVATAR_COLORS.forEach(color=>{
-    const sw = document.createElement('div');
-    sw.className = 'avatar-swatch' + (color===selectedAvatarColor ? ' selected' : '');
-    sw.style.background = color;
-    sw.onclick = ()=>{ selectedAvatarColor = color; renderAvatarPicker(); };
-    wrap.appendChild(sw);
-  });
+/* ============ AVATAR GENERADO (SVG) ============ */
+const AVATAR_SKINS = ['#ffdbac','#f1c27d','#e0ac69','#c68642','#8d5524','#5a3825'];
+const AVATAR_HAIR_COLORS = ['#2b1b12','#5a3825','#8a5a2b','#d9a441','#b33a2e','#6b6b6b','#3a6bd9','#c94fb0'];
+const AVATAR_HAIRSTYLES = [
+  {key:'bald', label:'Sin pelo'},
+  {key:'short', label:'Corto'},
+  {key:'long', label:'Largo'},
+  {key:'curly', label:'Rizado'},
+  {key:'buns', label:'Rodetes'},
+  {key:'mohawk', label:'Mohawk'},
+];
+const AVATAR_ACCESSORIES = [
+  {key:'none', label:'Ninguno'},
+  {key:'glasses', label:'Lentes'},
+];
+let selectedAvatar = { skin: AVATAR_SKINS[0], hair: 'short', hairColor: AVATAR_HAIR_COLORS[0], accessory: 'none' };
+
+function buildAvatarSVG(avatar, size){
+  avatar = avatar || selectedAvatar;
+  size = size || 32;
+  const skin = avatar.skin || AVATAR_SKINS[0];
+  const hairColor = avatar.hairColor || AVATAR_HAIR_COLORS[0];
+  let hairShape = '';
+  switch(avatar.hair){
+    case 'short': hairShape = `<path d="M3 13 Q16 1 29 13 L29 8 Q16 -3 3 8 Z" fill="${hairColor}"/>`; break;
+    case 'long': hairShape = `<path d="M2 14 Q16 -3 30 14 L30 27 Q26 15 16 15 Q6 15 2 27 Z" fill="${hairColor}"/>`; break;
+    case 'curly': hairShape = `<circle cx="8" cy="9" r="5.5" fill="${hairColor}"/><circle cx="16" cy="5" r="6.5" fill="${hairColor}"/><circle cx="24" cy="9" r="5.5" fill="${hairColor}"/>`; break;
+    case 'buns': hairShape = `<circle cx="5" cy="8" r="4" fill="${hairColor}"/><circle cx="27" cy="8" r="4" fill="${hairColor}"/><path d="M5 13 Q16 2 27 13 Z" fill="${hairColor}"/>`; break;
+    case 'mohawk': hairShape = `<path d="M13 -2 L19 -2 L17 13 L15 13 Z" fill="${hairColor}"/>`; break;
+    default: hairShape = '';
+  }
+  const glasses = avatar.accessory==='glasses'
+    ? `<circle cx="11" cy="17" r="3.4" fill="none" stroke="#2b2b2b" stroke-width="1.4"/><circle cx="21" cy="17" r="3.4" fill="none" stroke="#2b2b2b" stroke-width="1.4"/><line x1="14.4" y1="17" x2="17.6" y2="17" stroke="#2b2b2b" stroke-width="1.4"/>`
+    : '';
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" style="border-radius:50%;background:#1c2024;flex-shrink:0;">
+    <circle cx="16" cy="18" r="13" fill="${skin}"/>
+    <circle cx="11" cy="17" r="1.4" fill="#2b2b2b"/>
+    <circle cx="21" cy="17" r="1.4" fill="#2b2b2b"/>
+    <path d="M12 23 Q16 26 20 23" stroke="#7a4a3a" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    ${hairShape}
+    ${glasses}
+  </svg>`;
 }
-renderAvatarPicker();
+function renderAvatarBuilder(containerId, avatarState, onChange){
+  const wrap = document.getElementById(containerId);
+  if(!wrap) return;
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:center;margin-bottom:12px;" id="${containerId}_preview"></div>
+    <label class="login-field-label">Tono de piel</label>
+    <div style="display:flex;gap:8px;margin-bottom:12px;" id="${containerId}_skin"></div>
+    <label class="login-field-label">Peinado</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="${containerId}_hair"></div>
+    <label class="login-field-label">Color de pelo</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;" id="${containerId}_haircolor"></div>
+    <label class="login-field-label">Accesorio</label>
+    <div style="display:flex;gap:6px;margin-bottom:4px;" id="${containerId}_accessory"></div>
+  `;
+  function refresh(){
+    document.getElementById(containerId+'_preview').innerHTML = buildAvatarSVG(avatarState, 72);
+    const skinBox = document.getElementById(containerId+'_skin'); skinBox.innerHTML='';
+    AVATAR_SKINS.forEach(color=>{
+      const sw = document.createElement('div');
+      sw.className = 'avatar-swatch' + (avatarState.skin===color?' selected':'');
+      sw.style.background = color;
+      sw.onclick = ()=>{ avatarState.skin = color; onChange(); refresh(); };
+      skinBox.appendChild(sw);
+    });
+    const hairBox = document.getElementById(containerId+'_hair'); hairBox.innerHTML='';
+    AVATAR_HAIRSTYLES.forEach(h=>{
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (avatarState.hair===h.key?' active':'');
+      btn.textContent = h.label; btn.type='button';
+      btn.onclick = ()=>{ avatarState.hair = h.key; onChange(); refresh(); };
+      hairBox.appendChild(btn);
+    });
+    const hcBox = document.getElementById(containerId+'_haircolor'); hcBox.innerHTML='';
+    AVATAR_HAIR_COLORS.forEach(color=>{
+      const sw = document.createElement('div');
+      sw.className = 'avatar-swatch' + (avatarState.hairColor===color?' selected':'');
+      sw.style.background = color; sw.style.width='26px'; sw.style.height='26px';
+      sw.onclick = ()=>{ avatarState.hairColor = color; onChange(); refresh(); };
+      hcBox.appendChild(sw);
+    });
+    const accBox = document.getElementById(containerId+'_accessory'); accBox.innerHTML='';
+    AVATAR_ACCESSORIES.forEach(a=>{
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (avatarState.accessory===a.key?' active':'');
+      btn.textContent = a.label; btn.type='button';
+      btn.onclick = ()=>{ avatarState.accessory = a.key; onChange(); refresh(); };
+      accBox.appendChild(btn);
+    });
+  }
+  refresh();
+}
 
 function showLoginError(msg){
   const el = document.getElementById('loginError');
@@ -676,6 +756,7 @@ function rebindLoginToggle(){
     document.getElementById('loginToggleText').innerHTML = isRegister
       ? '¿Ya tienes cuenta? <a id="loginToggleLink">Iniciar sesión</a>'
       : '¿No tienes cuenta? <a id="loginToggleLink">Crear una</a>';
+    if(isRegister) renderAvatarBuilder('regAvatarBuilder', selectedAvatar, ()=>{});
     rebindLoginToggle();
   };
 }
@@ -709,7 +790,7 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
       altura: altura ? Number(altura) : null,
       peso: peso ? Number(peso) : null,
       objetivo, nivel,
-      avatarColor: selectedAvatarColor
+      avatar: { ...selectedAvatar }
     };
   }
 
@@ -736,6 +817,18 @@ document.getElementById('logoutBtn').onclick = async ()=>{
   await auth.signOut();
 };
 
+function setAvatarElement(el, profileLike, size, fallbackInitials){
+  size = size || 32;
+  if(profileLike && profileLike.avatar){
+    el.innerHTML = buildAvatarSVG(profileLike.avatar, size);
+    el.style.background = 'transparent';
+  } else {
+    el.innerHTML = '';
+    el.style.background = (profileLike && profileLike.avatarColor) || '#7fd858';
+    el.textContent = fallbackInitials || 'U';
+  }
+}
+
 auth.onAuthStateChanged(async (user)=>{
   if(user){
     currentUser = user;
@@ -745,13 +838,8 @@ auth.onAuthStateChanged(async (user)=>{
     await fetchCustomExercises();
     const p = appData.profile;
     const avatarEl = document.getElementById('userAvatar');
-    if(p && p.nombre){
-      avatarEl.style.background = p.avatarColor || '#7fd858';
-      avatarEl.textContent = (p.nombre[0]||'').toUpperCase() + (p.apellido ? p.apellido[0].toUpperCase() : '');
-    } else {
-      avatarEl.style.background = '#7fd858';
-      avatarEl.textContent = (user.displayName || 'U')[0].toUpperCase();
-    }
+    const initials = p && p.nombre ? ((p.nombre[0]||'').toUpperCase() + (p.apellido ? p.apellido[0].toUpperCase() : '')) : (user.displayName || 'U')[0].toUpperCase();
+    setAvatarElement(avatarEl, p, 32, initials);
     render();
     if(!appData.hasSeenGuide){
       document.getElementById('guideModal').style.display = 'flex';
@@ -791,7 +879,7 @@ async function loadData(){
           nombre: pendingProfile.nombre, apellido: pendingProfile.apellido,
           edad: pendingProfile.edad, altura: pendingProfile.altura,
           objetivo: pendingProfile.objetivo, nivel: pendingProfile.nivel,
-          avatarColor: pendingProfile.avatarColor
+          avatar: pendingProfile.avatar
         };
         if(pendingProfile.peso){
           appData.bodyWeight.log.push({ date: new Date().toISOString(), weight: pendingProfile.peso });
@@ -799,6 +887,13 @@ async function loadData(){
         pendingProfile = null;
       }
       await db.collection('users').doc(currentUser.uid).set(appData);
+      try{
+        const p = appData.profile;
+        const name = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
+        await db.collection('members').doc(currentUser.uid).set({
+          name, avatar: (p && p.avatar) || null, avatarColor: (p && p.avatarColor) || '#7fd858', joinedAt: new Date().toISOString()
+        });
+      }catch(e){ console.error('Error registrando miembro', e); }
     }
   }catch(e){
     console.error('Error cargando datos de Firestore', e);
@@ -1050,6 +1145,48 @@ function renderMonthlySection(){
   });
 }
 
+async function fetchMembers(){
+  try{
+    const snap = await db.collection('members').orderBy('joinedAt','desc').limit(50).get();
+    state.progreso.members = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(e){
+    console.error('Error cargando miembros', e);
+    state.progreso.members = [];
+  }
+  if(state.tab==='progreso'){
+    const c = document.getElementById('content');
+    if(c) renderMembersSection();
+  }
+}
+function renderMembersSection(){
+  const box = document.getElementById('membersBox');
+  if(!box) return;
+  if(!state.progreso.members){
+    box.innerHTML = `<div class="empty" style="padding:16px;">Cargando miembros...</div>`;
+    fetchMembers();
+    return;
+  }
+  if(state.progreso.members.length===0){
+    box.innerHTML = `<div class="empty-cta">Todavía no hay más miembros registrados.</div>`;
+    return;
+  }
+  box.innerHTML = '';
+  state.progreso.members.forEach(m=>{
+    const isMe = currentUser && m.id===currentUser.uid;
+    const joinedStr = m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;';
+    row.innerHTML = `
+      <div class="user-avatar" id="member-av-${m.id}"></div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;">${m.name}${isMe?' (tú)':''}</div>
+        <div style="font-size:11px;color:var(--text-dim);">Se unió el ${joinedStr}</div>
+      </div>`;
+    box.appendChild(row);
+    setAvatarElement(row.querySelector(`#member-av-${m.id}`), m, 32, (m.name||'U')[0].toUpperCase());
+  });
+}
+
 /* ============ ACTIVIDAD Y REACCIONES ============ */
 async function postActivity(routineName, exerciseCount){
   if(!currentUser) return;
@@ -1295,6 +1432,38 @@ function renderPoolGrid(){
     card.onclick = ()=>{ st.open = (st.open===item.id)?null:item.id; renderPoolGrid(); };
     grid.appendChild(card);
   });
+}
+
+function openAvatarEditModal(){
+  const editAvatar = { ...(appData.profile.avatar || selectedAvatar) };
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">Editar avatar</div>
+      <p class="guide-sub">Personaliza cómo te ven los demás.</p>
+      <div id="editAvatarBuilder"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost" id="avCancelBtn" style="flex:1;">Cancelar</button>
+        <button class="btn btn-primary" id="avSaveBtn" style="flex:2;">Guardar avatar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  renderAvatarBuilder('editAvatarBuilder', editAvatar, ()=>{});
+  document.getElementById('avCancelBtn').onclick = ()=> modal.remove();
+  document.getElementById('avSaveBtn').onclick = async ()=>{
+    appData.profile.avatar = { ...editAvatar };
+    await saveData();
+    try{
+      const p = appData.profile;
+      const name = (p.nombre + ' ' + (p.apellido||'')).trim();
+      await db.collection('members').doc(currentUser.uid).set({ name, avatar: p.avatar, joinedAt: new Date().toISOString() }, {merge:true});
+    }catch(e){ console.error('Error actualizando avatar en miembros', e); }
+    modal.remove();
+    const initials = (p=>p.nombre[0].toUpperCase()+(p.apellido?p.apellido[0].toUpperCase():''))(appData.profile);
+    setAvatarElement(document.getElementById('userAvatar'), appData.profile, 32, initials);
+    render();
+  };
 }
 
 function openCustomExerciseModal(c){
@@ -1880,8 +2049,8 @@ function renderProgreso(c){
   c.innerHTML = `
     ${p && p.nombre ? `
     <div class="chart-card" style="display:flex;align-items:center;gap:14px;">
-      <div class="user-avatar" style="width:48px;height:48px;font-size:16px;background:${p.avatarColor||'#7fd858'};">${(p.nombre[0]||'').toUpperCase()}${p.apellido?p.apellido[0].toUpperCase():''}</div>
-      <div>
+      <div class="user-avatar" id="profileAvatarEl" style="width:48px;height:48px;font-size:16px;"></div>
+      <div style="flex:1;">
         <div style="font-size:15px;font-weight:700;">${p.nombre} ${p.apellido||''}</div>
         <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">
           ${p.edad?p.edad+' años · ':''}${p.altura?p.altura+' cm':''}
@@ -1889,6 +2058,7 @@ function renderProgreso(c){
           ${p.nivel ? ' · '+(nivelLabel[p.nivel]||p.nivel) : ''}
         </div>
       </div>
+      <button class="btn btn-ghost btn-sm" id="editAvatarBtn">Editar avatar</button>
     </div>` : ''}
 
     <div class="stat-row">
@@ -1898,6 +2068,9 @@ function renderProgreso(c){
 
     <div class="section-title">Logros <span class="n">(${ACHIEVEMENTS.filter(a=>a.check()).length}/${ACHIEVEMENTS.length})</span></div>
     <div id="achievementsGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:8px;"></div>
+
+    <div class="section-title">Miembros de la app <span class="n">(quiénes tienen cuenta)</span></div>
+    <div id="membersBox"></div>
 
     <div class="section-title">Récords personales (PRs)</div>
     <div id="prList"></div>
@@ -1938,10 +2111,16 @@ function renderProgreso(c){
 
   // PR list
   const prList = document.getElementById('prList');
+  if(p && p.nombre){
+    const initials = (p.nombre[0]||'').toUpperCase() + (p.apellido?p.apellido[0].toUpperCase():'');
+    setAvatarElement(document.getElementById('profileAvatarEl'), p, 48, initials);
+    document.getElementById('editAvatarBtn').onclick = ()=> openAvatarEditModal();
+  }
   renderLeaderboardSection();
   renderMonthlySection();
   renderActivitySection();
   renderAchievements();
+  renderMembersSection();
   if(exercisesWithData.length===0){
     prList.innerHTML = `<div class="empty-cta">Completa alguna rutina para empezar a ver tus récords aquí.</div>`;
   } else {
