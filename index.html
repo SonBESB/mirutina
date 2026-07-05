@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mi Entrenador">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#14171a">
+<title>Mi Entrenador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#14171a;
+    --panel:#1c2024;
+    --panel-2:#22262b;
+    --panel-3:#282d33;
+    --line:#2c3136;
+    --text:#eef0f2;
+    --text-dim:#9aa3ab;
+    --accent:#7fd858;
+    --accent-dim:#3d5c32;
+    --accent-soft:rgba(127,216,88,0.1);
+    --danger:#d76b6b;
+    --gold:#e0b84a;
+    --tag-upper:#5b9bd5;
+    --tag-lower:#e0a458;
+    --tag-core:#d76b6b;
+    --tag-back:#9b7fd5;
+    --tag-full:#7fd858;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    -webkit-touch-callout:none;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 90px;}
+  header{margin-bottom:14px;}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;}
+  h1 .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;display:inline-block;}
+  .sub{color:var(--text-dim);font-size:13px;margin:0;}
+
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;margin:16px 0;overflow-x:auto;}
+  .tab-btn{flex:1;background:transparent;border:none;color:var(--text-dim);padding:9px 6px;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s ease;white-space:nowrap;}
+  .tab-btn.active{background:var(--accent);color:#122008;}
+  .tab-btn:not(.active):hover{color:var(--text);}
+
+  .filters{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;}
+  .filter-btn{background:var(--panel);border:1px solid var(--line);color:var(--text-dim);padding:7px 13px;border-radius:20px;font-size:12.5px;cursor:pointer;transition:all .15s ease;font-weight:600;white-space:nowrap;}
+  .filter-btn:hover{border-color:#444b52;color:var(--text);}
+  .filter-btn.active{background:var(--accent);color:#122008;border-color:var(--accent);}
+
+  .searchbox{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:var(--radius);font-size:14px;margin-bottom:4px;}
+  .searchbox:focus{outline:none;border-color:var(--accent);}
+  .searchbox::placeholder{color:var(--text-dim);}
+
+  .count{color:var(--text-dim);font-size:12px;margin:14px 2px 8px;}
+  .grid{display:grid;grid-template-columns:1fr;gap:10px;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:border-color .15s ease, background .15s ease;}
+  .card:hover{border-color:#3a4147;background:var(--panel-2);}
+  .card.open{border-color:var(--accent-dim);background:var(--panel-2);}
+  .card-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .card-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .chevron{color:var(--text-dim);font-size:12px;transition:transform .2s ease;flex-shrink:0;}
+  .card.open .chevron{transform:rotate(90deg);color:var(--accent);}
+
+  .meta-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;}
+  .tag{font-size:10.5px;padding:3px 9px;border-radius:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .tag-tren-superior{background:rgba(91,155,213,0.18);color:var(--tag-upper);}
+  .tag-tren-inferior{background:rgba(224,164,88,0.18);color:var(--tag-lower);}
+  .tag-abdomen{background:rgba(215,107,107,0.18);color:var(--tag-core);}
+  .tag-espalda{background:rgba(155,127,213,0.18);color:var(--tag-back);}
+  .tag-cuerpo-completo{background:rgba(127,216,88,0.18);color:var(--tag-full);}
+  .level{font-size:10.5px;color:var(--text-dim);font-weight:600;}
+  .badge-last{font-size:10.5px;color:var(--accent);font-weight:700;background:var(--accent-soft);padding:3px 9px;border-radius:12px;}
+  .badge-pr{font-size:10.5px;color:var(--gold);font-weight:700;background:rgba(224,184,74,0.14);padding:3px 9px;border-radius:12px;}
+
+  .detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.6;color:#d6dade;}
+  .card.open .detail{display:block;}
+  .detail h4{margin:0 0 6px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);font-weight:700;}
+  .detail p{margin:0 0 12px;}
+  .detail ul{margin:0 0 12px;padding-left:18px;}
+  .detail li{margin-bottom:4px;}
+  .detail .last{margin-bottom:0;}
+  .sets-pill{display:inline-flex;gap:6px;align-items:center;background:rgba(127,216,88,0.08);border:1px solid var(--accent-dim);padding:6px 12px;border-radius:8px;font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:12px;}
+  .empty{text-align:center;color:var(--text-dim);padding:40px 20px;font-size:14px;}
+
+  .check-circle{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s ease;}
+  .check-circle.checked{background:var(--accent);border-color:var(--accent);color:#122008;font-weight:900;font-size:13px;}
+
+  .rgrid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px;}
+  .rcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .rcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .rcard-title{font-size:16px;font-weight:700;margin:0 0 4px;}
+  .rcard-sub{font-size:12.5px;color:var(--text-dim);margin:0;}
+  .rcard-list{margin:12px 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+  .rcard-list li{font-size:12.5px;color:#d6dade;display:flex;justify-content:space-between;background:var(--panel-2);padding:7px 10px;border-radius:7px;}
+  .rcard-list li span.ex-sets{color:var(--text-dim);}
+  .rcard-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+
+  .btn{border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s ease;}
+  .btn-primary{background:var(--accent);color:#122008;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:var(--panel-3);color:var(--text);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:#444b52;}
+  .btn-danger{background:transparent;color:var(--danger);border:1px solid rgba(215,107,107,0.3);}
+  .btn-block{width:100%;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:7px;}
+
+  .section-title{font-size:14px;font-weight:700;margin:22px 0 4px;display:flex;align-items:center;gap:8px;}
+  .section-title .n{color:var(--text-dim);font-weight:500;font-size:12px;}
+
+  .builder-bar{position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .name-input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:var(--radius);font-size:14px;margin-bottom:10px;}
+  .name-input:focus{outline:none;border-color:var(--accent);}
+  .pick-card{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .15s ease;}
+  .pick-card.selected{border-color:var(--accent);background:var(--accent-soft);}
+  .pick-info{flex:1;}
+  .pick-name{font-size:14px;font-weight:600;}
+
+  .workout-header{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .progress-bar-outer{width:100%;height:8px;background:var(--panel-3);border-radius:6px;overflow:hidden;margin-top:10px;}
+  .progress-bar-inner{height:100%;background:var(--accent);transition:width .3s ease;}
+  .wex{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+  .wex.complete{border-color:var(--accent-dim);}
+  .wex-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .wex-name{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .wex-check{color:var(--accent);font-size:14px;}
+  .wex-last{font-size:11.5px;color:var(--text-dim);margin-bottom:10px;}
+  .set-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+  .set-label{font-size:12px;color:var(--text-dim);width:52px;flex-shrink:0;font-weight:600;}
+  .set-input{background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:8px 8px;border-radius:7px;font-size:13px;width:100%;text-align:center;}
+  .set-input:focus{outline:none;border-color:var(--accent);}
+  .set-unit{font-size:11px;color:var(--text-dim);width:30px;flex-shrink:0;}
+  .set-done-btn{width:34px;height:34px;border-radius:8px;border:2px solid var(--line);background:var(--panel-2);color:var(--text-dim);flex-shrink:0;cursor:pointer;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s ease;}
+  .set-done-btn.done{background:var(--accent);border-color:var(--accent);color:#122008;}
+
+  .unit-toggle{display:flex;gap:4px;background:var(--panel-3);border-radius:8px;padding:3px;}
+  .unit-btn{background:transparent;border:none;color:var(--text-dim);padding:5px 10px;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;}
+  .unit-btn.active{background:var(--accent);color:#122008;}
+
+  .hist-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+  .hist-top{display:flex;justify-content:space-between;align-items:center;}
+  .hist-title{font-size:14px;font-weight:700;}
+  .hist-date{font-size:11.5px;color:var(--text-dim);}
+  .hist-ex{font-size:12.5px;color:#d6dade;margin-top:8px;display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;}
+  .hist-ex:first-of-type{margin-top:10px;}
+
+  .empty-cta{text-align:center;padding:40px 20px;color:var(--text-dim);font-size:13.5px;background:var(--panel);border:1px dashed var(--line);border-radius:12px;}
+
+  /* Progreso tab */
+  .stat-row{display:flex;gap:10px;margin-top:10px;}
+  .stat-card{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
+  .stat-num{font-size:22px;font-weight:800;color:var(--accent);}
+  .stat-label{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .pr-row{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px;}
+  .pr-name{font-size:13px;font-weight:600;}
+  .pr-value{font-size:12.5px;color:var(--gold);font-weight:700;}
+  .chart-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:10px;}
+  .chart-title{font-size:12px;color:var(--text-dim);margin-bottom:8px;}
+  select.name-input{appearance:none;}
+  .bw-row{display:flex;gap:8px;margin-top:10px;}
+  .bw-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;}
+  .bw-item{display:flex;justify-content:space-between;font-size:12.5px;color:#d6dade;background:var(--panel-2);padding:7px 10px;border-radius:7px;}
+
+  /* Rest timer bar */
+  #restTimerBar{
+    display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
+    background:var(--panel-3);border:1px solid var(--accent-dim);border-radius:14px;padding:12px 14px;
+    z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.4);align-items:center;gap:10px;
+  }
+  #restTimerBar .rt-info{flex:1;min-width:0;}
+  #restTimerBar .rt-label{font-size:10.5px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.4px;}
+  #restTimerBar .rt-time{font-size:20px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+  #restTimerBar .rt-bar-outer{width:100%;height:5px;background:var(--panel);border-radius:4px;overflow:hidden;margin-top:6px;}
+  #restTimerBar .rt-bar-inner{height:100%;background:var(--accent);}
+  #restTimerBar .rt-btns{display:flex;gap:6px;flex-shrink:0;}
+  .rt-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
+  .rt-skip{background:transparent;color:var(--danger);border:1px solid rgba(215,107,107,0.3);padding:0 10px;height:34px;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+  /* Login screen */
+  #loginScreen{
+    position:fixed;inset:0;background:
+      radial-gradient(ellipse 700px 500px at 50% -10%, rgba(127,216,88,0.16), transparent 60%),
+      radial-gradient(ellipse 500px 400px at 90% 100%, rgba(127,216,88,0.08), transparent 60%),
+      var(--bg);
+    z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;
+    font-family:'Inter', system-ui, sans-serif;
+  }
+  .login-box{width:100%;max-width:380px;}
+  .login-brand{display:flex;flex-direction:column;align-items:center;margin-bottom:22px;}
+  .login-wordmark{
+    font-family:'Bebas Neue', system-ui, sans-serif;
+    font-size:44px;letter-spacing:2px;line-height:1;color:var(--text);
+    text-align:center;
+  }
+  .login-wordmark span{color:var(--accent);}
+  .barbell{display:flex;align-items:center;gap:0;margin:14px 0 6px;width:100%;max-width:220px;}
+  .barbell .plate{width:14px;height:26px;border-radius:3px;background:var(--panel-3);border:1px solid var(--line);flex-shrink:0;}
+  .barbell .plate.big{height:34px;width:18px;background:var(--accent);border-color:var(--accent-dim);}
+  .barbell .bar{flex:1;height:4px;background:linear-gradient(90deg, var(--line), var(--accent), var(--line));border-radius:2px;}
+  .login-tagline{color:var(--text-dim);font-size:12.5px;text-align:center;letter-spacing:0.3px;}
+  .login-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 22px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(127,216,88,0.04);
+  }
+  .login-error{
+    background:rgba(215,107,107,0.12);border:1px solid rgba(215,107,107,0.3);color:var(--danger);
+    padding:10px 14px;border-radius:8px;font-size:12.5px;margin-bottom:14px;display:none;
+  }
+  .login-field-label{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px;margin:0 0 6px;display:block;}
+  .login-toggle{text-align:center;margin-top:18px;font-size:12.5px;color:var(--text-dim);}
+  .login-toggle a{color:var(--accent);font-weight:700;cursor:pointer;text-decoration:none;}
+  .header-user{display:flex;justify-content:space-between;align-items:center;}
+  .logout-btn{background:transparent;border:1px solid var(--line);color:var(--text-dim);padding:6px 12px;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;}
+  #appRoot{display:none;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-wordmark">MI <span>ENTRENADOR</span></div>
+      <div class="barbell">
+        <div class="plate big"></div><div class="plate"></div><div class="bar"></div><div class="plate"></div><div class="plate big"></div>
+      </div>
+      <div class="login-tagline" id="loginSubText">Tu progreso, tus reglas.</div>
+    </div>
+    <div class="login-card">
+      <div class="login-error" id="loginError"></div>
+      <label class="login-field-label">Usuario</label>
+      <input class="name-input" id="loginUser" placeholder="ej: tu_usuario" autocapitalize="none" autocorrect="off" style="margin-bottom:14px;">
+      <label class="login-field-label">Contraseña</label>
+      <input class="name-input" id="loginPass" type="password" placeholder="••••••••">
+      <button class="btn btn-primary btn-block" id="loginSubmitBtn" style="margin-top:16px;">Entrar</button>
+      <div class="login-toggle" id="loginToggleText">¿No tienes cuenta? <a id="loginToggleLink">Crear una</a></div>
+    </div>
+  </div>
+</div>
+
+<div id="appRoot">
+<div class="wrap">
+  <header>
+    <div class="header-user">
+      <h1><span class="dot"></span>Mi Entrenador</h1>
+      <button class="logout-btn" id="logoutBtn">Salir (<span id="currentUserLabel"></span>)</button>
+    </div>
+    <p class="sub" id="headerSub">Pool de ejercicios, rutinas y seguimiento de progreso.</p>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
+</div>
+</div>
+
+<div id="restTimerBar">
+  <div class="rt-info">
+    <div class="rt-label">Descanso</div>
+    <div class="rt-time" id="restTimerText">01:30</div>
+    <div class="rt-bar-outer"><div class="rt-bar-inner" id="restTimerFill" style="width:100%"></div></div>
+  </div>
+  <div class="rt-btns">
+    <button class="rt-btn" id="rtMinus">-15</button>
+    <button class="rt-btn" id="rtPlus">+15</button>
+    <button class="rt-skip" id="rtSkip">Saltar</button>
+  </div>
+</div>
+
+<script>
+/* ============ DATA ============ */
+const EXERCISES = [
+  {id:"press-banca",name:"Press de banca con barra",group:"tren-superior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"Acuéstate en el banco con los pies firmes en el piso, la barra alineada sobre tus ojos/pecho superior. Agarre un poco más ancho que los hombros.",
+   steps:["Retrae los omóplatos antes de sacar la barra del soporte.","Baja la barra de forma controlada hacia la parte media del pecho, codos a unos 45° del torso.","Toca ligeramente el pecho sin rebotar y empuja la barra hacia arriba en línea recta."],
+   errors:"No dejes que la barra baje hacia el cuello, y evita que la espalda baja se despegue exageradamente del banco."},
+  {id:"press-militar",name:"Press militar con mancuernas",group:"tren-superior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"Sentado o de pie, mancuernas a la altura de los hombros, palmas hacia adelante, core apretado.",
+   steps:["Empuja ambas mancuernas hacia arriba hasta casi extender los codos.","Baja de forma controlada hasta que los codos queden a unos 90°."],
+   errors:"No uses impulso de las piernas, mantén el abdomen firme."},
+  {id:"press-inclinado",name:"Press inclinado con mancuernas",group:"tren-superior",level:"Intermedio",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Banco a 30-45°, mancuernas a la altura del pecho superior, palmas hacia adelante.",
+   steps:["Empuja las mancuernas hacia arriba y ligeramente hacia el centro, sin chocarlas.","Baja controlado hasta sentir estiramiento en el pecho superior."],
+   errors:"Evita inclinar el banco a más de 45°."},
+  {id:"fondos",name:"Fondos en paralelas (dips)",group:"tren-superior",level:"Intermedio-Avanzado",setsCount:3,repsTarget:"8-12",isTime:false,
+   setup:"Sujeta las barras paralelas, brazos extendidos, cuerpo ligeramente inclinado hacia adelante.",
+   steps:["Baja el cuerpo doblando los codos hasta sentir estiramiento en el pecho/hombro.","Empuja hacia arriba hasta extender los brazos."],
+   errors:"Si tienes molestias de hombro, reduce el rango o usa la máquina asistida."},
+  {id:"curl-biceps",name:"Curl de bíceps con mancuernas",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12",isTime:false,
+   setup:"De pie, mancuernas a los lados, palmas hacia adelante, codos pegados al torso.",
+   steps:["Sube la mancuerna flexionando el codo, sin mover el hombro.","Baja de forma controlada hasta extender el brazo por completo."],
+   errors:"No uses impulso de cadera/espalda para 'lanzar' el peso."},
+  {id:"extension-triceps",name:"Extensión de tríceps en polea",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"De pie frente a la polea alta, agarre en la cuerda o barra, codos pegados al cuerpo.",
+   steps:["Extiende los brazos hacia abajo sin mover los codos del costado.","Vuelve controlado hasta que el antebrazo quede casi paralelo al piso."],
+   errors:"Evita que los codos se separen del torso o suban."},
+  {id:"elev-laterales",name:"Elevaciones laterales con mancuernas",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"De pie, mancuernas a los lados, ligera flexión de codos.",
+   steps:["Eleva los brazos hacia los lados hasta la altura de los hombros.","Baja controlado sin dejar caer el peso."],
+   errors:"No uses peso excesivo: si necesitas balancear el cuerpo, el peso es demasiado alto."},
+  {id:"push-ups",name:"Push-ups (flexiones de pecho)",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"10-15",isTime:false,
+   setup:"Posición de plancha alta, manos un poco más anchas que los hombros, cuerpo en línea recta.",
+   steps:["Baja el pecho hacia el piso doblando los codos a unos 45° del torso.","Empuja hacia arriba hasta extender los brazos."],
+   errors:"Evita que la cadera se hunda o se eleve; mantén el core apretado."},
+  {id:"remo-barra",name:"Remo con barra",group:"espalda",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"De pie, rodillas ligeramente flexionadas, torso inclinado hacia adelante (~45°), barra frente a las piernas.",
+   steps:["Tira de la barra hacia el abdomen bajo, llevando los codos hacia atrás.","Baja controlado hasta extender los brazos."],
+   errors:"No redondees la espalda baja; mantén el core firme."},
+  {id:"jalon-pecho",name:"Jalón al pecho (polea)",group:"espalda",level:"Principiante",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Sentado en la máquina, agarre un poco más ancho que los hombros, piernas fijas bajo el soporte.",
+   steps:["Tira de la barra hacia la parte superior del pecho, llevando los codos hacia abajo y atrás.","Sube controlado hasta extender los brazos."],
+   errors:"No te eches demasiado hacia atrás usando impulso del torso."},
+  {id:"dominadas",name:"Dominadas (pull-ups)",group:"espalda",level:"Avanzado",setsCount:4,repsTarget:"máx. posible",isTime:false,
+   setup:"Cuélgate de la barra con agarre un poco más ancho que los hombros, brazos extendidos.",
+   steps:["Tira del cuerpo hacia arriba hasta que la barbilla pase la barra.","Baja controlado hasta extender los brazos."],
+   errors:"Si no llegas a completar reps, usa banda de asistencia."},
+  {id:"remo-mancuerna",name:"Remo con mancuerna a un brazo",group:"espalda",level:"Principiante",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Apoya una rodilla y una mano en el banco, espalda paralela al piso, mancuerna en la mano libre.",
+   steps:["Tira de la mancuerna hacia la cadera, llevando el codo hacia atrás.","Baja controlado hasta extender el brazo."],
+   errors:"No rotes el torso para ayudarte con impulso."},
+  {id:"peso-muerto-conv",name:"Peso muerto convencional",group:"espalda",level:"Intermedio-Avanzado",setsCount:4,repsTarget:"6-8",isTime:false,
+   setup:"Barra frente a las espinillas, pies al ancho de cadera, agarre justo fuera de las piernas.",
+   steps:["Con la espalda recta, empuja el piso con los pies y extiende cadera y rodillas a la vez.","La barra sube pegada a las piernas.","Al final, cadera y rodillas totalmente extendidas."],
+   errors:"Nunca redondees la espalda baja; si sientes que se curva, baja el peso."},
+  {id:"peso-muerto-rum",name:"Peso muerto rumano",group:"espalda",level:"Intermedio",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"De pie, barra o mancuernas frente a los muslos, rodillas con ligera flexión fija.",
+   steps:["Empuja la cadera hacia atrás manteniendo la espalda recta.","Baja hasta sentir estiramiento en los femorales, luego vuelve extendiendo la cadera."],
+   errors:"No es una sentadilla: las rodillas casi no se doblan."},
+  {id:"sentadilla-barra",name:"Sentadilla con barra",group:"tren-inferior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"Barra apoyada en la parte alta de la espalda, pies al ancho de hombros, puntas ligeramente hacia afuera.",
+   steps:["Baja flexionando cadera y rodillas a la vez, pecho arriba.","Baja hasta que los muslos queden paralelos al piso.","Sube empujando el piso con los talones."],
+   errors:"Evita que las rodillas se vayan hacia adentro; no redondees la espalda baja."},
+  {id:"sentadilla-goblet",name:"Sentadilla goblet",group:"tren-inferior",level:"Principiante",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Sostén una mancuerna o kettlebell verticalmente contra el pecho, pies al ancho de hombros.",
+   steps:["Baja en sentadilla manteniendo los codos entre las rodillas, pecho arriba.","Sube empujando con los talones."],
+   errors:"No dejes caer el pecho hacia adelante."},
+  {id:"zancadas",name:"Zancadas (lunges)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"12",isTime:false,
+   setup:"De pie, da un paso largo hacia adelante con una pierna.",
+   steps:["Baja doblando ambas rodillas hasta que la rodilla trasera casi toque el piso.","Empuja con la pierna delantera para volver."],
+   errors:"Evita que la rodilla delantera se adelante demasiado más allá de la punta del pie."},
+  {id:"prensa",name:"Prensa de piernas",group:"tren-inferior",level:"Principiante",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Sentado en la máquina, pies al ancho de hombros sobre la plataforma.",
+   steps:["Baja la plataforma flexionando las rodillas hacia el pecho.","Empuja hasta casi extender las piernas."],
+   errors:"No bajes tanto que la cadera se despegue del asiento."},
+  {id:"sentadilla-bulgara",name:"Sentadilla búlgara",group:"tren-inferior",level:"Intermedio",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Pie trasero apoyado sobre un banco, pie delantero adelante, mancuernas a los lados (opcional).",
+   steps:["Baja flexionando la pierna delantera hasta un ángulo de rodilla de unos 90°.","Empuja con el talón delantero para subir."],
+   errors:"Mantén el torso más bien erguido."},
+  {id:"peso-muerto-sumo",name:"Peso muerto sumo",group:"tren-inferior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"Pies bien abiertos, puntas hacia afuera, barra sobre el medio del pie.",
+   steps:["Con la espalda recta, empuja el piso con los pies extendiendo cadera y rodillas a la vez.","Sube la barra pegada a las piernas."],
+   errors:"No dejes que las rodillas colapsen hacia adentro."},
+  {id:"hip-thrust",name:"Hip thrust",group:"tren-inferior",level:"Principiante-Intermedio",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Espalda apoyada en un banco, barra o peso sobre la cadera, pies firmes en el piso.",
+   steps:["Empuja la cadera hacia arriba apretando los glúteos.","Baja controlado sin que la cadera toque el piso del todo."],
+   errors:"Evita arquear en exceso la espalda baja en el punto más alto."},
+  {id:"elev-talones",name:"Elevación de talones (pantorrilla)",group:"tren-inferior",level:"Principiante",setsCount:4,repsTarget:"15-20",isTime:false,
+   setup:"De pie en la máquina o con mancuernas, punta de los pies sobre un escalón/plataforma.",
+   steps:["Sube los talones lo más alto posible.","Baja controlado hasta sentir estiramiento completo."],
+   errors:"No rebotes; el control en la bajada es lo que más estimula la pantorrilla."},
+  {id:"plancha",name:"Plancha (plank)",group:"abdomen",level:"Principiante",setsCount:3,repsTarget:"30-45",isTime:true,
+   setup:"Antebrazos en el piso, codos bajo los hombros, cuerpo en línea recta de cabeza a talones.",
+   steps:["Aprieta el abdomen y los glúteos, sin dejar que la cadera suba o baje.","Respira de forma controlada."],
+   errors:"Evita que la cadera se hunda o se eleve demasiado."},
+  {id:"crunch",name:"Crunch abdominal",group:"abdomen",level:"Principiante",setsCount:3,repsTarget:"15-20",isTime:false,
+   setup:"Acostado boca arriba, rodillas flexionadas, pies apoyados, manos detrás de la cabeza.",
+   steps:["Eleva los hombros del piso contrayendo el abdomen.","Baja controlado."],
+   errors:"No uses las manos para 'jalar' la cabeza."},
+  {id:"elev-piernas",name:"Elevación de piernas colgado",group:"abdomen",level:"Intermedio-Avanzado",setsCount:3,repsTarget:"10-15",isTime:false,
+   setup:"Cuélgate de una barra con los brazos extendidos.",
+   steps:["Eleva las piernas hacia el pecho contrayendo el abdomen bajo.","Baja controlado sin balancear el cuerpo."],
+   errors:"Evita usar impulso o balanceo."},
+  {id:"russian-twist",name:"Russian twist",group:"abdomen",level:"Principiante-Intermedio",setsCount:3,repsTarget:"16-20",isTime:false,
+   setup:"Sentado, rodillas flexionadas, tronco inclinado ligeramente hacia atrás.",
+   steps:["Rota el torso llevando las manos hacia un lado y luego hacia el otro.","Mantén la espalda recta."],
+   errors:"No redondees la espalda."},
+  {id:"mountain-climbers",name:"Mountain climbers",group:"abdomen",level:"Principiante",setsCount:3,repsTarget:"30-40",isTime:true,
+   setup:"Posición de plancha alta, manos bajo los hombros.",
+   steps:["Lleva una rodilla hacia el pecho de forma rápida, alternando piernas.","Mantén la cadera estable."],
+   errors:"Evita que la cadera suba mucho."},
+  {id:"dead-bug",name:"Dead bug",group:"abdomen",level:"Principiante",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Acostado boca arriba, brazos extendidos hacia el techo, rodillas flexionadas a 90°.",
+   steps:["Baja lentamente un brazo y la pierna contraria, sin arquear la espalda baja.","Vuelve y repite con el lado contrario."],
+   errors:"La espalda baja debe permanecer pegada al piso."},
+  {id:"burpees",name:"Burpees",group:"cuerpo-completo",level:"Intermedio",setsCount:4,repsTarget:"10-15",isTime:false,
+   setup:"De pie, pies al ancho de hombros.",
+   steps:["Baja a sentadilla, apoya las manos y lleva los pies hacia atrás quedando en plancha.","Haz una flexión (opcional), regresa los pies con un salto.","Salta hacia arriba extendiendo el cuerpo."],
+   errors:"Mantén el core firme en la fase de plancha."},
+  {id:"kb-swing",name:"Kettlebell swing",group:"cuerpo-completo",level:"Intermedio",setsCount:4,repsTarget:"15-20",isTime:false,
+   setup:"De pie, pies un poco más anchos que los hombros, kettlebell frente a ti con ambas manos.",
+   steps:["Con bisagra de cadera, lleva la pesa hacia atrás entre las piernas.","Extiende la cadera con fuerza hasta la altura del pecho."],
+   errors:"No es un movimiento de brazos; la potencia viene de la cadera."},
+  {id:"thrusters",name:"Thrusters (sentadilla + press)",group:"cuerpo-completo",level:"Intermedio-Avanzado",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"De pie, mancuernas a la altura de los hombros.",
+   steps:["Baja en sentadilla completa manteniendo el pecho arriba.","Al subir, empuja las mancuernas por encima de la cabeza en un solo flujo."],
+   errors:"Evita hacer los dos movimientos por separado."},
+];
+
+const GROUPS = [
+  {key:"todos", label:"Todos"},
+  {key:"tren-superior", label:"Tren superior"},
+  {key:"espalda", label:"Espalda"},
+  {key:"tren-inferior", label:"Tren inferior"},
+  {key:"abdomen", label:"Abdomen"},
+  {key:"cuerpo-completo", label:"Cuerpo completo"},
+];
+const LABELS = {"tren-superior":"Tren superior","espalda":"Espalda","tren-inferior":"Tren inferior","abdomen":"Abdomen","cuerpo-completo":"Cuerpo completo"};
+
+const RECO_TEMPLATES = [
+  {key:"tren-superior", title:"Tren Superior", desc:"Empuje y tracción: pecho, hombro, brazos y espalda.", pull:["tren-superior","espalda"], counts:{"tren-superior":3,"espalda":3}},
+  {key:"tren-inferior", title:"Tren Inferior", desc:"Piernas y glúteos completos.", pull:["tren-inferior"], counts:{"tren-inferior":6}},
+  {key:"abdomen", title:"Abdomen", desc:"Core completo: recto, oblicuos y transverso.", pull:["abdomen"], counts:{"abdomen":5}},
+  {key:"cuerpo-completo", title:"Cuerpo Completo", desc:"Un poco de todo en una sola sesión.", pull:["tren-superior","espalda","tren-inferior","abdomen","cuerpo-completo"], counts:{"tren-superior":1,"espalda":1,"tren-inferior":1,"abdomen":1,"cuerpo-completo":2}},
+];
+
+/* ============ STATE ============ */
+let appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90 };
+let dataLoaded = false;
+
+let state = {
+  tab: "pool",
+  pool: { group: "todos", search: "", open: null },
+  rutinas: { view: "list", generated: {}, builderName: "", builderSelected: [], activeSession: null, _builderGroup:"todos" },
+  progreso: { chartExId: null }
+};
+
+let restTimer = { active:false, remaining:0, total:90, intervalId:null };
+
+/* ============ FIREBASE CONFIG ============ */
+// 1) Crea un proyecto gratis en https://console.firebase.google.com
+// 2) Activa Authentication > Email/Password y Firestore Database
+// 3) Pega aquí tu configuración (Configuración del proyecto > Tus apps > Web):
+const firebaseConfig = {
+  apiKey: "AIzaSyCyH35fBitQuhnewUuu92rDrIwj5ghVYQc",
+  authDomain: "mirutina-cl.firebaseapp.com",
+  projectId: "mirutina-cl",
+  storageBucket: "mirutina-cl.firebasestorage.app",
+  messagingSenderId: "827562516991",
+  appId: "1:827562516991:web:41f40117528c21e79787ca"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+let currentUser = null;
+
+function usernameToEmail(u){
+  return u.trim().toLowerCase().replace(/[^a-z0-9]/g,'') + '@mientrenador.local';
+}
+function translateAuthError(code){
+  const map = {
+    'auth/email-already-in-use':'Ese usuario ya existe. Prueba iniciar sesión en vez de crear cuenta.',
+    'auth/weak-password':'La contraseña debe tener al menos 6 caracteres.',
+    'auth/user-not-found':'Ese usuario no existe. Prueba crear una cuenta.',
+    'auth/wrong-password':'Contraseña incorrecta.',
+    'auth/invalid-email':'Nombre de usuario inválido, usa solo letras y números.',
+    'auth/invalid-credential':'Usuario o contraseña incorrectos.',
+    'auth/network-request-failed':'Sin conexión a internet.',
+  };
+  return map[code] || 'Ocurrió un error. Intenta de nuevo.';
+}
+
+let loginMode = 'login'; // 'login' | 'register'
+function showLoginError(msg){
+  const el = document.getElementById('loginError');
+  el.textContent = msg; el.style.display = 'block';
+}
+function hideLoginError(){ document.getElementById('loginError').style.display='none'; }
+
+function rebindLoginToggle(){
+  document.getElementById('loginToggleLink').onclick = ()=>{
+    loginMode = loginMode==='login' ? 'register' : 'login';
+    hideLoginError();
+    document.getElementById('loginSubmitBtn').textContent = loginMode==='login' ? 'Entrar' : 'Crear cuenta';
+    document.getElementById('loginSubText').textContent = loginMode==='login' ? 'Ingresa tu usuario y contraseña para ver tu progreso.' : 'Elige un usuario y contraseña nuevos.';
+    document.getElementById('loginToggleText').innerHTML = loginMode==='login'
+      ? '¿No tienes cuenta? <a id="loginToggleLink">Crear una</a>'
+      : '¿Ya tienes cuenta? <a id="loginToggleLink">Iniciar sesión</a>';
+    rebindLoginToggle();
+  };
+}
+rebindLoginToggle();
+
+document.getElementById('loginSubmitBtn').onclick = async ()=>{
+  hideLoginError();
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if(!user || !pass){ showLoginError('Completa usuario y contraseña.'); return; }
+  const email = usernameToEmail(user);
+  const btn = document.getElementById('loginSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Cargando...';
+  try{
+    if(loginMode==='register'){
+      await auth.createUserWithEmailAndPassword(email, pass);
+      await auth.currentUser.updateProfile({ displayName: user });
+    } else {
+      await auth.signInWithEmailAndPassword(email, pass);
+    }
+  }catch(err){
+    showLoginError(translateAuthError(err.code));
+  }
+  btn.disabled = false; btn.textContent = loginMode==='login' ? 'Entrar' : 'Crear cuenta';
+};
+
+document.getElementById('logoutBtn').onclick = async ()=>{
+  stopRestTimer();
+  await auth.signOut();
+};
+
+auth.onAuthStateChanged(async (user)=>{
+  if(user){
+    currentUser = user;
+    document.getElementById('currentUserLabel').textContent = user.displayName || 'Usuario';
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appRoot').style.display = 'block';
+    await loadData();
+    render();
+  } else {
+    currentUser = null;
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appRoot').style.display = 'none';
+  }
+});
+
+/* ============ STORAGE (Firestore por usuario) ============ */
+async function loadData(){
+  dataLoaded = false;
+  try{
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if(doc.exists){
+      const parsed = doc.data();
+      appData = Object.assign({customRoutines:[],history:[],progress:{},bodyWeight:{log:[]},unit:"kg",restSeconds:90}, parsed);
+      if(!appData.bodyWeight) appData.bodyWeight = {log:[]};
+    } else {
+      appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90 };
+      await db.collection('users').doc(currentUser.uid).set(appData);
+    }
+  }catch(e){
+    console.error('Error cargando datos de Firestore', e);
+    alert('No se pudo conectar con la base de datos. Revisa tu conexión a internet.');
+  }
+  dataLoaded = true;
+}
+async function saveData(){
+  if(!currentUser) return;
+  try{ await db.collection('users').doc(currentUser.uid).set(appData); }
+  catch(e){ console.error('Error guardando en Firestore', e); alert('No se pudo guardar. Revisa tu conexión a internet.'); }
+}
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mi-entrenador-respaldo-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importBackup(file){
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    try{
+      const parsed = JSON.parse(e.target.result);
+      appData = Object.assign({customRoutines:[],history:[],progress:{},bodyWeight:{log:[]},unit:"kg",restSeconds:90}, parsed);
+      await saveData();
+      render();
+      alert('Respaldo importado correctamente.');
+    }catch(err){ alert('Ese archivo no es un respaldo válido.'); }
+  };
+  reader.readAsText(file);
+}
+
+/* ============ HELPERS ============ */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function byGroup(g){ return EXERCISES.filter(e=>e.group===g); }
+function findEx(id){ return EXERCISES.find(e=>e.id===id); }
+function shortDate(iso){ return new Date(iso).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}); }
+
+function generateRoutine(templateKey){
+  const tpl = RECO_TEMPLATES.find(t=>t.key===templateKey);
+  let picked = [];
+  tpl.pull.forEach(group=>{
+    const n = tpl.counts[group] || 1;
+    picked = picked.concat(shuffle(byGroup(group)).slice(0,n));
+  });
+  return { name: tpl.title, exercises: picked.map(e=>e.id) };
+}
+
+function getProgressLog(exId){ return (appData.progress[exId] && appData.progress[exId].log) || []; }
+function pushProgress(exId, entry){
+  if(!appData.progress[exId]) appData.progress[exId] = {log:[]};
+  appData.progress[exId].log.push(entry);
+  if(appData.progress[exId].log.length>20) appData.progress[exId].log = appData.progress[exId].log.slice(-20);
+}
+function lastProgress(exId){ const log = getProgressLog(exId); return log.length ? log[log.length-1] : null; }
+function fmtLast(exId, isTime){
+  const p = lastProgress(exId);
+  if(!p) return null;
+  if(isTime) return `Último: ${p.reps}s`;
+  return `Último: ${p.weight>0 ? p.weight+appData.unit+' x ':''}${p.reps} reps`;
+}
+function prForExercise(exId){
+  const log = getProgressLog(exId);
+  if(log.length===0) return null;
+  const hasWeight = log.some(e=>Number(e.weight)>0);
+  if(hasWeight){
+    return log.reduce((best,e)=> Number(e.weight)>Number(best.weight)?e:best);
+  }
+  return log.reduce((best,e)=> Number(e.reps)>Number(best.reps)?e:best);
+}
+function computeStreak(history){
+  if(history.length===0) return 0;
+  let streak=1;
+  for(let i=0;i<history.length-1;i++){
+    const d1 = new Date(history[i].date), d2 = new Date(history[i+1].date);
+    const diffDays = (d1-d2)/(1000*60*60*24);
+    if(diffDays<=3.5) streak++; else break;
+  }
+  return streak;
+}
+
+/* SVG line chart */
+function svgLineChart(points, unitLabel){
+  if(points.length===0) return `<div class="empty" style="padding:24px 10px;">Aún no hay suficientes datos para graficar.</div>`;
+  const w=600,h=180,pad=32;
+  const values = points.map(p=>Number(p.value)||0);
+  let max = Math.max(...values), min = Math.min(...values);
+  if(max===min){ max = max+1; min = Math.max(0,min-1); }
+  const range = max-min;
+  const stepX = points.length>1 ? (w-2*pad)/(points.length-1) : 0;
+  const coords = points.map((p,i)=>{
+    const x = points.length>1 ? pad+i*stepX : w/2;
+    const y = h-pad - ((Number(p.value)-min)/range)*(h-2*pad);
+    return {x,y};
+  });
+  const pathD = coords.map((c,i)=>(i===0?'M':'L')+c.x.toFixed(1)+','+c.y.toFixed(1)).join(' ');
+  const areaD = pathD + ` L${coords[coords.length-1].x.toFixed(1)},${h-pad} L${coords[0].x.toFixed(1)},${h-pad} Z`;
+  const dots = coords.map(c=>`<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.5" fill="#7fd858"/>`).join('');
+  const skip = Math.max(1, Math.ceil(points.length/6));
+  const labels = coords.map((c,i)=> i%skip===0 ? `<text x="${c.x.toFixed(1)}" y="${h-8}" font-size="9" fill="#9aa3ab" text-anchor="middle">${points[i].label}</text>` : '').join('');
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
+    <path d="${areaD}" fill="rgba(127,216,88,0.12)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="#7fd858" stroke-width="2.5"/>
+    ${dots}
+    ${labels}
+  </svg>`;
+}
+
+/* Rest timer */
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; g.gain.value = 0.2; o.start();
+    setTimeout(()=>{ o.stop(); ctx.close(); }, 350);
+  }catch(e){}
+}
+function updateRestTimerBar(){
+  const bar = document.getElementById('restTimerBar');
+  if(!bar) return;
+  if(!restTimer.active){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const mm = Math.floor(restTimer.remaining/60);
+  const ss = String(restTimer.remaining%60).padStart(2,'0');
+  document.getElementById('restTimerText').textContent = `${mm}:${ss}`;
+  const pct = restTimer.total ? (restTimer.remaining/restTimer.total*100) : 0;
+  document.getElementById('restTimerFill').style.width = Math.max(0,pct)+'%';
+}
+function startRestTimer(seconds){
+  if(restTimer.intervalId) clearInterval(restTimer.intervalId);
+  restTimer.total = seconds; restTimer.remaining = seconds; restTimer.active = true;
+  updateRestTimerBar();
+  restTimer.intervalId = setInterval(()=>{
+    restTimer.remaining--;
+    if(restTimer.remaining<=0){
+      clearInterval(restTimer.intervalId); restTimer.intervalId=null; restTimer.active=false;
+      updateRestTimerBar(); beep();
+      if(navigator.vibrate) navigator.vibrate([200,100,200]);
+      return;
+    }
+    updateRestTimerBar();
+  },1000);
+}
+function stopRestTimer(){
+  if(restTimer.intervalId) clearInterval(restTimer.intervalId);
+  restTimer.intervalId=null; restTimer.active=false; updateRestTimerBar();
+}
+function adjustRestTimer(delta){
+  if(!restTimer.active) return;
+  restTimer.remaining = Math.max(0, restTimer.remaining+delta);
+  if(restTimer.remaining>restTimer.total) restTimer.total = restTimer.remaining;
+  updateRestTimerBar();
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('rtMinus').onclick = ()=>adjustRestTimer(-15);
+  document.getElementById('rtPlus').onclick = ()=>adjustRestTimer(15);
+  document.getElementById('rtSkip').onclick = ()=>stopRestTimer();
+});
+
+/* ============ RENDER ROOT ============ */
+function renderTabs(){
+  const tabsEl = document.getElementById('tabs');
+  const tabs = [
+    {key:"pool", label:"Pool"},
+    {key:"rutinas", label:"Rutinas"},
+    {key:"historial", label:"Historial"},
+    {key:"progreso", label:"Progreso"},
+  ];
+  tabsEl.innerHTML = "";
+  tabs.forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (state.tab===t.key ? ' active':'');
+    btn.textContent = t.label;
+    btn.onclick = ()=>{ state.tab = t.key; if(t.key==='rutinas' && state.rutinas.view!=='workout') state.rutinas.view='list'; render(); };
+    tabsEl.appendChild(btn);
+  });
+}
+
+function render(){
+  renderTabs();
+  const c = document.getElementById('content');
+  const sub = document.getElementById('headerSub');
+  if(!dataLoaded){ c.innerHTML = `<div class="empty">Cargando datos...</div>`; return; }
+
+  if(state.tab==='pool'){ sub.textContent = "Explora la técnica de cada ejercicio."; renderPool(c); }
+  else if(state.tab==='rutinas'){
+    sub.textContent = "Rutinas recomendadas o crea la tuya.";
+    if(state.rutinas.view==='workout') renderWorkout(c);
+    else if(state.rutinas.view==='builder') renderBuilder(c);
+    else renderRutinasList(c);
+  }
+  else if(state.tab==='historial'){ sub.textContent = "Tus rutinas completadas."; renderHistorial(c); }
+  else if(state.tab==='progreso'){ sub.textContent = "Récords, racha, gráficos y peso corporal."; renderProgreso(c); }
+}
+
+/* ============ POOL TAB ============ */
+function renderPool(c){
+  const st = state.pool;
+  c.innerHTML = `
+    <input class="searchbox" id="poolSearch" placeholder="Buscar ejercicio..." value="${st.search.replace(/"/g,'')}">
+    <div class="filters" id="poolFilters"></div>
+    <div class="count" id="poolCount"></div>
+    <div class="grid" id="poolGrid"></div>
+    <div class="empty" id="poolEmpty" style="display:none;">No se encontraron ejercicios.</div>
+  `;
+  const filtersEl = document.getElementById('poolFilters');
+  GROUPS.forEach(g=>{
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (st.group===g.key?' active':'');
+    btn.textContent = g.label;
+    btn.onclick = ()=>{ st.group = g.key; st.open=null; render(); };
+    filtersEl.appendChild(btn);
+  });
+  document.getElementById('poolSearch').oninput = (e)=>{ st.search = e.target.value; st.open=null; renderPoolGrid(); };
+  renderPoolGrid();
+}
+function renderPoolGrid(){
+  const st = state.pool;
+  const filtered = EXERCISES.filter(e=>(st.group==='todos'||e.group===st.group)&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
+  document.getElementById('poolCount').textContent = filtered.length + (filtered.length===1?" ejercicio":" ejercicios");
+  const grid = document.getElementById('poolGrid'); const empty = document.getElementById('poolEmpty');
+  grid.innerHTML = "";
+  if(filtered.length===0){ empty.style.display='block'; return; }
+  empty.style.display='none';
+  filtered.forEach(item=>{
+    const card = document.createElement('div');
+    card.className = 'card' + (st.open===item.id?' open':'');
+    const lastBadge = fmtLast(item.id, item.isTime);
+    const pr = prForExercise(item.id);
+    const prBadge = pr ? `PR: ${item.isTime ? pr.reps+'s' : (Number(pr.weight)>0 ? pr.weight+appData.unit+' x '+pr.reps : pr.reps+' reps')}` : null;
+    card.innerHTML = `
+      <div class="card-top"><div class="card-title">${item.name}</div><div class="chevron">▶</div></div>
+      <div class="meta-row">
+        <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
+        <span class="level">${item.level}</span>
+        ${lastBadge?`<span class="badge-last">${lastBadge}</span>`:''}
+        ${prBadge?`<span class="badge-pr">🏆 ${prBadge}</span>`:''}
+      </div>
+      <div class="detail">
+        <div class="sets-pill">📋 ${item.setsCount} series x ${item.repsTarget}${item.isTime?' seg':' reps'}</div>
+        <h4>Posición inicial</h4><p>${item.setup}</p>
+        <h4>Ejecución</h4><ul>${item.steps.map(s=>`<li>${s}</li>`).join('')}</ul>
+        <h4>Error común a evitar</h4><p class="last">${item.errors}</p>
+      </div>`;
+    card.onclick = ()=>{ st.open = (st.open===item.id)?null:item.id; renderPoolGrid(); };
+    grid.appendChild(card);
+  });
+}
+
+/* ============ RUTINAS: LIST ============ */
+function renderRutinasList(c){
+  c.innerHTML = `
+    <div class="section-title">Rutinas recomendadas</div><div class="rgrid" id="recoGrid"></div>
+    <div class="section-title">Mis rutinas <span class="n">(${appData.customRoutines.length})</span></div>
+    <div style="margin-top:8px;"><button class="btn btn-primary btn-block" id="createRoutineBtn">+ Crear mi rutina</button></div>
+    <div class="rgrid" id="customGrid" style="margin-top:12px;"></div>`;
+
+  document.getElementById('createRoutineBtn').onclick = ()=>{
+    state.rutinas.view='builder'; state.rutinas.builderName=''; state.rutinas.builderSelected=[]; render();
+  };
+
+  const recoGrid = document.getElementById('recoGrid');
+  RECO_TEMPLATES.forEach(tpl=>{
+    if(!state.rutinas.generated[tpl.key]) state.rutinas.generated[tpl.key] = generateRoutine(tpl.key);
+    const routine = state.rutinas.generated[tpl.key];
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.innerHTML = `
+      <div class="rcard-top"><div><p class="rcard-title">${tpl.title}</p><p class="rcard-sub">${tpl.desc}</p></div></div>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return `<li><span>${ex.name}</span><span class="ex-sets">${ex.setsCount}x${ex.repsTarget}</span></li>`;}).join('')}</ul>
+      <div class="rcard-actions">
+        <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+        <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
+      </div>`;
+    card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(routine.name, routine.exercises);
+    card.querySelector('[data-action="regen"]').onclick = ()=>{ state.rutinas.generated[tpl.key]=generateRoutine(tpl.key); renderRutinasList(c); };
+    recoGrid.appendChild(card);
+  });
+
+  const customGrid = document.getElementById('customGrid');
+  if(appData.customRoutines.length===0){
+    customGrid.innerHTML = `<div class="empty-cta">Todavía no has creado rutinas propias. Usa "Crear mi rutina" para elegir tus ejercicios favoritos del pool.</div>`;
+  } else {
+    appData.customRoutines.forEach(r=>{
+      const card = document.createElement('div'); card.className='rcard';
+      card.innerHTML = `
+        <div class="rcard-top"><div><p class="rcard-title">${r.name}</p><p class="rcard-sub">${r.exercises.length} ejercicios</p></div></div>
+        <ul class="rcard-list">${r.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${ex.name}</span><span class="ex-sets">${ex.setsCount}x${ex.repsTarget}</span></li>`:'';}).join('')}</ul>
+        <div class="rcard-actions">
+          <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+          <button class="btn btn-danger" data-action="del">Eliminar</button>
+        </div>`;
+      card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(r.name, r.exercises);
+      card.querySelector('[data-action="del"]').onclick = async ()=>{
+        appData.customRoutines = appData.customRoutines.filter(x=>x.id!==r.id);
+        await saveData(); renderRutinasList(c);
+      };
+      customGrid.appendChild(card);
+    });
+  }
+}
+
+/* ============ RUTINAS: BUILDER ============ */
+function renderBuilder(c){
+  const st = state.rutinas;
+  c.innerHTML = `
+    <div class="builder-bar">
+      <button class="btn btn-ghost" id="backBtn">← Volver</button>
+      <button class="btn btn-primary" id="saveRoutineBtn">Guardar rutina (${st.builderSelected.length})</button>
+    </div>
+    <input class="name-input" id="routineName" placeholder="Nombre de la rutina (ej: Full Body Lunes)" value="${st.builderName.replace(/"/g,'')}">
+    <div class="filters" id="builderFilters"></div>
+    <div class="grid" id="builderGrid"></div>`;
+
+  document.getElementById('backBtn').onclick = ()=>{ st.view='list'; render(); };
+  document.getElementById('routineName').oninput = (e)=>{ st.builderName = e.target.value; };
+  document.getElementById('saveRoutineBtn').onclick = async ()=>{
+    if(st.builderSelected.length===0){ alert('Selecciona al menos un ejercicio.'); return; }
+    appData.customRoutines.push({ id:'r'+Date.now(), name: st.builderName.trim()||'Mi rutina', exercises: st.builderSelected.slice() });
+    await saveData(); st.view='list'; render();
+  };
+
+  const filtersEl = document.getElementById('builderFilters');
+  GROUPS.forEach(g=>{
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (st._builderGroup===g.key?' active':'');
+    btn.textContent = g.label;
+    btn.onclick = ()=>{ st._builderGroup = g.key; renderBuilder(c); };
+    filtersEl.appendChild(btn);
+  });
+
+  const grid = document.getElementById('builderGrid');
+  EXERCISES.filter(e=> st._builderGroup==='todos' || e.group===st._builderGroup).forEach(item=>{
+    const selected = st.builderSelected.includes(item.id);
+    const card = document.createElement('div');
+    card.className = 'pick-card' + (selected?' selected':'');
+    card.innerHTML = `
+      <div class="check-circle ${selected?'checked':''}">${selected?'✓':''}</div>
+      <div class="pick-info">
+        <div class="pick-name">${item.name}</div>
+        <div class="meta-row" style="margin-top:5px;">
+          <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
+          <span class="level">${item.setsCount}x${item.repsTarget}</span>
+        </div>
+      </div>`;
+    card.onclick = ()=>{
+      st.builderSelected = selected ? st.builderSelected.filter(id=>id!==item.id) : [...st.builderSelected, item.id];
+      renderBuilder(c);
+    };
+    grid.appendChild(card);
+  });
+}
+
+/* ============ WORKOUT ============ */
+function startWorkout(name, exerciseIds){
+  const exercises = exerciseIds.map(id=>{
+    const ex = findEx(id); const prev = lastProgress(id);
+    const sets = [];
+    for(let i=0;i<ex.setsCount;i++) sets.push({ weight: prev?prev.weight:0, reps: prev?prev.reps:'', done:false });
+    return { id, sets };
+  });
+  state.rutinas.activeSession = { name, startedAt: new Date().toISOString(), exercises };
+  state.rutinas.view = 'workout';
+  render();
+}
+function sessionProgressPct(session){
+  let total=0, done=0;
+  session.exercises.forEach(e=>e.sets.forEach(s=>{ total++; if(s.done) done++; }));
+  return total===0?0:Math.round((done/total)*100);
+}
+function renderWorkout(c){
+  const session = state.rutinas.activeSession;
+  if(!session){ state.rutinas.view='list'; render(); return; }
+  const pct = sessionProgressPct(session);
+  c.innerHTML = `
+    <div class="workout-header">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div><div style="font-size:16px;font-weight:700;">${session.name}</div><div style="font-size:12px;color:var(--text-dim);">${pct}% completado</div></div>
+        <div class="unit-toggle" id="unitToggle">
+          <button class="unit-btn ${appData.unit==='kg'?'active':''}" data-u="kg">KG</button>
+          <button class="unit-btn ${appData.unit==='lb'?'active':''}" data-u="lb">LB</button>
+        </div>
+      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%"></div></div>
+    </div>
+    <div id="wexList"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn btn-ghost" id="cancelBtn" style="flex:1;">Cancelar</button>
+      <button class="btn btn-primary" id="finishBtn" style="flex:2;">Finalizar rutina</button>
+    </div>`;
+
+  document.getElementById('unitToggle').querySelectorAll('.unit-btn').forEach(b=>{
+    b.onclick = async ()=>{ appData.unit = b.dataset.u; await saveData(); renderWorkout(c); };
+  });
+  document.getElementById('cancelBtn').onclick = ()=>{
+    if(confirm('¿Salir sin guardar esta rutina?')){
+      stopRestTimer(); state.rutinas.activeSession=null; state.rutinas.view='list'; render();
+    }
+  };
+  document.getElementById('finishBtn').onclick = async ()=>{
+    session.exercises.forEach(ex=>{
+      const lastDone = [...ex.sets].reverse().find(s=>s.done) || ex.sets[ex.sets.length-1];
+      if(lastDone && lastDone.reps!=='' && lastDone.reps!==null){
+        pushProgress(ex.id, { date:new Date().toISOString(), weight:Number(lastDone.weight)||0, reps:lastDone.reps, unit:appData.unit });
+      }
+    });
+    appData.history.unshift({
+      id:'h'+Date.now(), name:session.name, date:new Date().toISOString(),
+      exercises: session.exercises.map(ex=>({ id:ex.id, name:findEx(ex.id).name, sets: ex.sets.filter(s=>s.done).map(s=>({weight:Number(s.weight)||0, reps:s.reps, unit:appData.unit})) }))
+    });
+    if(appData.history.length>30) appData.history = appData.history.slice(0,30);
+    await saveData();
+    stopRestTimer();
+    state.rutinas.activeSession=null; state.rutinas.view='list'; state.tab='historial';
+    render();
+  };
+
+  const list = document.getElementById('wexList');
+  session.exercises.forEach(wex=>{
+    const ex = findEx(wex.id);
+    const allDone = wex.sets.every(s=>s.done);
+    const box = document.createElement('div');
+    box.className = 'wex' + (allDone?' complete':'');
+    const lastBadge = fmtLast(ex.id, ex.isTime);
+    box.innerHTML = `
+      <div class="wex-top">
+        <div class="wex-name">${allDone?'<span class="wex-check">✓</span>':''}${ex.name}</div>
+        <span class="tag tag-${ex.group}">${LABELS[ex.group]}</span>
+      </div>
+      <div class="wex-last">${lastBadge || 'Sin registros previos'}</div>
+      <div class="setsWrap"></div>`;
+    const setsWrap = box.querySelector('.setsWrap');
+    wex.sets.forEach((s, setIdx)=>{
+      const row = document.createElement('div'); row.className='set-row';
+      row.innerHTML = `
+        <div class="set-label">Serie ${setIdx+1}</div>
+        <input class="set-input" type="number" min="0" placeholder="0" value="${s.weight||''}" ${ex.isTime?'style="display:none"':''}>
+        <div class="set-unit" ${ex.isTime?'style="display:none"':''}>${appData.unit}</div>
+        <input class="set-input" type="number" min="0" placeholder="${ex.isTime?'seg':'reps'}" value="${s.reps||''}">
+        <button class="set-done-btn ${s.done?'done':''}">✓</button>`;
+      const inputs = row.querySelectorAll('.set-input');
+      inputs[0].oninput = (e)=>{ s.weight = e.target.value; };
+      inputs[1].oninput = (e)=>{ s.reps = e.target.value; };
+      row.querySelector('.set-done-btn').onclick = ()=>{
+        const goingTrue = !s.done;
+        s.done = goingTrue;
+        if(goingTrue) startRestTimer(appData.restSeconds || 90);
+        renderWorkout(c);
+      };
+      setsWrap.appendChild(row);
+    });
+    list.appendChild(box);
+  });
+}
+
+/* ============ HISTORIAL ============ */
+function renderHistorial(c){
+  if(appData.history.length===0){
+    c.innerHTML = `<div class="empty-cta">Aún no has completado ninguna rutina. Cuando termines una desde la pestaña "Rutinas", aparecerá aquí.</div>`;
+    return;
+  }
+  c.innerHTML = `<div class="section-title">Sesiones completadas <span class="n">(${appData.history.length})</span></div><div id="histList"></div>`;
+  const list = document.getElementById('histList');
+  appData.history.forEach(h=>{
+    const dateStr = new Date(h.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
+    const card = document.createElement('div'); card.className='hist-card';
+    card.innerHTML = `
+      <div class="hist-top"><div class="hist-title">${h.name}</div><div class="hist-date">${dateStr}</div></div>
+      ${h.exercises.map(ex=>{
+        if(ex.sets.length===0) return `<div class="hist-ex"><span>${ex.name}</span><span style="color:var(--text-dim)">sin series marcadas</span></div>`;
+        const best = ex.sets[ex.sets.length-1];
+        return `<div class="hist-ex"><span>${ex.name}</span><span>${best.weight>0?best.weight+best.unit+' x ':''}${best.reps} · ${ex.sets.length} series</span></div>`;
+      }).join('')}`;
+    list.appendChild(card);
+  });
+}
+
+/* ============ PROGRESO ============ */
+function renderProgreso(c){
+  const streak = computeStreak(appData.history);
+  const totalSessions = appData.history.length;
+  const exercisesWithData = EXERCISES.filter(e=>getProgressLog(e.id).length>0);
+
+  c.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num">🔥 ${streak}</div><div class="stat-label">racha de sesiones</div></div>
+      <div class="stat-card"><div class="stat-num">${totalSessions}</div><div class="stat-label">rutinas completadas</div></div>
+    </div>
+
+    <div class="section-title">Récords personales (PRs)</div>
+    <div id="prList"></div>
+
+    <div class="section-title">Progreso por ejercicio</div>
+    <select class="name-input" id="chartExSelect"></select>
+    <div class="chart-card" id="chartCard"></div>
+
+    <div class="section-title">Peso corporal</div>
+    <div class="chart-card">
+      <div class="bw-row">
+        <input class="set-input" style="text-align:left;" type="number" min="0" step="0.1" id="bwInput" placeholder="Peso de hoy (${appData.unit})">
+        <button class="btn btn-primary btn-sm" id="bwAddBtn">Agregar</button>
+      </div>
+      <div id="bwChart" style="margin-top:14px;"></div>
+      <div class="bw-list" id="bwList"></div>
+    </div>
+
+    <div class="section-title">Respaldo de tus datos</div>
+    <div class="chart-card">
+      <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 12px;">Tu progreso se guarda en este iPhone. Descarga un respaldo de vez en cuando por si borras datos de Safari o cambias de equipo.</p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="exportBtn" style="flex:1;">⬇️ Descargar respaldo</button>
+        <button class="btn btn-ghost" id="importBtn" style="flex:1;">⬆️ Restaurar respaldo</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" style="display:none;">
+    </div>
+  `;
+
+  // PR list
+  const prList = document.getElementById('prList');
+  if(exercisesWithData.length===0){
+    prList.innerHTML = `<div class="empty-cta">Completa alguna rutina para empezar a ver tus récords aquí.</div>`;
+  } else {
+    exercisesWithData.forEach(ex=>{
+      const pr = prForExercise(ex.id);
+      const valStr = ex.isTime ? `${pr.reps}s` : (Number(pr.weight)>0 ? `${pr.weight}${pr.unit||appData.unit} x ${pr.reps}` : `${pr.reps} reps`);
+      const row = document.createElement('div'); row.className='pr-row';
+      row.innerHTML = `<span class="pr-name">${ex.name}</span><span class="pr-value">🏆 ${valStr}</span>`;
+      prList.appendChild(row);
+    });
+  }
+
+  // Chart selector
+  const select = document.getElementById('chartExSelect');
+  if(exercisesWithData.length===0){
+    select.innerHTML = `<option>Sin datos aún</option>`;
+    select.disabled = true;
+    document.getElementById('chartCard').innerHTML = `<div class="empty" style="padding:10px;">Registra series en una rutina para ver tu progreso aquí.</div>`;
+  } else {
+    select.disabled = false;
+    if(!state.progreso.chartExId || !exercisesWithData.find(e=>e.id===state.progreso.chartExId)){
+      state.progreso.chartExId = exercisesWithData[0].id;
+    }
+    select.innerHTML = exercisesWithData.map(e=>`<option value="${e.id}" ${e.id===state.progreso.chartExId?'selected':''}>${e.name}</option>`).join('');
+    select.onchange = (e)=>{ state.progreso.chartExId = e.target.value; renderChart(); };
+    renderChart();
+  }
+  function renderChart(){
+    const ex = findEx(state.progreso.chartExId);
+    const log = getProgressLog(ex.id);
+    const points = log.map(entry=>({ label: shortDate(entry.date), value: ex.isTime ? entry.reps : (Number(entry.weight)>0 ? entry.weight : entry.reps) }));
+    const unitLabel = ex.isTime ? 'segundos' : (log.some(e=>Number(e.weight)>0) ? `peso (${appData.unit})` : 'repeticiones');
+    document.getElementById('chartCard').innerHTML = `<div class="chart-title">${ex.name} · ${unitLabel}</div>` + svgLineChart(points);
+  }
+
+  // Body weight
+  document.getElementById('bwAddBtn').onclick = async ()=>{
+    const val = Number(document.getElementById('bwInput').value);
+    if(!val || val<=0){ alert('Ingresa un peso válido.'); return; }
+    appData.bodyWeight.log.push({ date: new Date().toISOString(), weight: val });
+    if(appData.bodyWeight.log.length>30) appData.bodyWeight.log = appData.bodyWeight.log.slice(-30);
+    await saveData();
+    renderProgreso(c);
+  };
+  const bwPoints = appData.bodyWeight.log.map(e=>({label: shortDate(e.date), value: e.weight}));
+  document.getElementById('bwChart').innerHTML = svgLineChart(bwPoints);
+  const bwList = document.getElementById('bwList');
+  if(appData.bodyWeight.log.length===0){
+    bwList.innerHTML = `<div class="empty" style="padding:10px;">Sin registros de peso corporal aún.</div>`;
+  } else {
+    [...appData.bodyWeight.log].reverse().forEach(e=>{
+      const row = document.createElement('div'); row.className='bw-item';
+      row.innerHTML = `<span>${new Date(e.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'})}</span><span>${e.weight} ${appData.unit}</span>`;
+      bwList.appendChild(row);
+    });
+  }
+  document.getElementById('exportBtn').onclick = ()=>exportBackup();
+  document.getElementById('importBtn').onclick = ()=>document.getElementById('importFile').click();
+  document.getElementById('importFile').onchange = (e)=>{
+    if(e.target.files && e.target.files[0]) importBackup(e.target.files[0]);
+  };
+}
+
+/* ============ INIT ============ */
+(function init(){
+  render();
+  document.getElementById('rtMinus').onclick = ()=>adjustRestTimer(-15);
+  document.getElementById('rtPlus').onclick = ()=>adjustRestTimer(15);
+  document.getElementById('rtSkip').onclick = ()=>stopRestTimer();
+})();
+</script>
+</body>
+</html>
