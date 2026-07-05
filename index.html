@@ -742,6 +742,7 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appRoot').style.display = 'block';
     await loadData();
+    await fetchCustomExercises();
     const p = appData.profile;
     const avatarEl = document.getElementById('userAvatar');
     if(p && p.nombre){
@@ -839,8 +840,24 @@ function shuffle(arr){
   for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
 }
-function byGroup(g){ return EXERCISES.filter(e=>e.group===g); }
-function findEx(id){ return EXERCISES.find(e=>e.id===id); }
+let CUSTOM_EXERCISES = [];
+function allExercises(){ return EXERCISES.concat(CUSTOM_EXERCISES); }
+function byGroup(g){ return allExercises().filter(e=>e.group===g); }
+function findEx(id){ return allExercises().find(e=>e.id===id); }
+async function fetchCustomExercises(){
+  try{
+    const snap = await db.collection('customExercises').orderBy('createdAt','desc').get();
+    CUSTOM_EXERCISES = snap.docs.map(d=>({ id:'custom_'+d.id, ...d.data(), isCustom:true }));
+  }catch(e){ console.error('Error cargando ejercicios personalizados', e); CUSTOM_EXERCISES = []; }
+}
+async function addCustomExercise(data){
+  const p = appData.profile;
+  const authorName = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
+  await db.collection('customExercises').add({
+    ...data, authorUid: currentUser.uid, authorName, createdAt: new Date().toISOString()
+  });
+  await fetchCustomExercises();
+}
 function youtubeSearchUrl(exerciseName){
   return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(exerciseName + ' técnica correcta ejercicio');
 }
@@ -1231,6 +1248,7 @@ function renderPool(c){
     <div class="count" id="poolCount"></div>
     <div class="grid" id="poolGrid"></div>
     <div class="empty" id="poolEmpty" style="display:none;">No se encontraron ejercicios.</div>
+    <button class="btn btn-ghost btn-block" id="addExerciseBtn" style="margin-top:14px;">+ Agregar ejercicio personalizado</button>
   `;
   const filtersEl = document.getElementById('poolFilters');
   GROUPS.forEach(g=>{
@@ -1241,11 +1259,12 @@ function renderPool(c){
     filtersEl.appendChild(btn);
   });
   document.getElementById('poolSearch').oninput = (e)=>{ st.search = e.target.value; st.open=null; renderPoolGrid(); };
+  document.getElementById('addExerciseBtn').onclick = ()=> openCustomExerciseModal(c);
   renderPoolGrid();
 }
 function renderPoolGrid(){
   const st = state.pool;
-  const filtered = EXERCISES.filter(e=>(st.group==='todos'||e.group===st.group)&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
+  const filtered = allExercises().filter(e=>(st.group==='todos'||e.group===st.group)&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
   document.getElementById('poolCount').textContent = filtered.length + (filtered.length===1?" ejercicio":" ejercicios");
   const grid = document.getElementById('poolGrid'); const empty = document.getElementById('poolEmpty');
   grid.innerHTML = "";
@@ -1258,10 +1277,11 @@ function renderPoolGrid(){
     const pr = prForExercise(item.id);
     const prBadge = pr ? `PR: ${item.isTime ? pr.reps+'s' : (Number(pr.weight)>0 ? pr.weight+appData.unit+' x '+pr.reps : pr.reps+' reps')}` : null;
     card.innerHTML = `
-      <div class="card-top"><div class="card-title">${item.name}</div><div class="chevron">▶</div></div>
+      <div class="card-top"><div class="card-title">${item.isCustom?'⭐ ':''}${item.name}</div><div class="chevron">▶</div></div>
       <div class="meta-row">
         <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
         <span class="level">${item.level}</span>
+        ${item.isCustom?`<span class="badge-last" style="color:var(--gold);background:rgba(224,184,74,0.14);">por ${item.authorName}</span>`:''}
         ${lastBadge?`<span class="badge-last">${lastBadge}</span>`:''}
         ${prBadge?`<span class="badge-pr">🏆 ${prBadge}</span>`:''}
       </div>
@@ -1275,6 +1295,62 @@ function renderPoolGrid(){
     card.onclick = ()=>{ st.open = (st.open===item.id)?null:item.id; renderPoolGrid(); };
     grid.appendChild(card);
   });
+}
+
+function openCustomExerciseModal(c){
+  const modal = document.createElement('div');
+  modal.id = 'customExModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">Nuevo ejercicio</div>
+      <p class="guide-sub">Se compartirá con todos los usuarios de la app.</p>
+      <label class="login-field-label">Nombre</label>
+      <input class="name-input" id="ceName" placeholder="Ej: Curl araña">
+      <label class="login-field-label">Grupo muscular</label>
+      <select class="name-input" id="ceGroup">
+        ${GROUPS.filter(g=>g.key!=='todos').map(g=>`<option value="${g.key}">${g.label}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label class="login-field-label">Series</label><input class="name-input" id="ceSets" type="number" min="1" max="10" placeholder="3"></div>
+        <div style="flex:1;"><label class="login-field-label">Reps (o seg)</label><input class="name-input" id="ceReps" placeholder="8-10"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);margin-bottom:14px;cursor:pointer;">
+        <input type="checkbox" id="ceIsTime"> Es un ejercicio por tiempo (ej: plancha)
+      </label>
+      <label class="login-field-label">Posición inicial</label>
+      <textarea id="ceSetup" style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;min-height:50px;margin-bottom:14px;font-family:inherit;" placeholder="Cómo te colocas antes de empezar"></textarea>
+      <label class="login-field-label">Ejecución (un paso por línea)</label>
+      <textarea id="ceSteps" style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;min-height:60px;margin-bottom:14px;font-family:inherit;" placeholder="Paso 1&#10;Paso 2"></textarea>
+      <label class="login-field-label">Error común a evitar</label>
+      <textarea id="ceErrors" style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;min-height:50px;margin-bottom:16px;font-family:inherit;" placeholder="Qué evitar al hacerlo"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="ceCancelBtn" style="flex:1;">Cancelar</button>
+        <button class="btn btn-primary" id="ceSaveBtn" style="flex:2;">Guardar ejercicio</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('ceCancelBtn').onclick = ()=> modal.remove();
+  document.getElementById('ceSaveBtn').onclick = async ()=>{
+    const name = document.getElementById('ceName').value.trim();
+    const group = document.getElementById('ceGroup').value;
+    const setsCount = Number(document.getElementById('ceSets').value) || 3;
+    const repsTarget = document.getElementById('ceReps').value.trim() || '10-12';
+    const isTime = document.getElementById('ceIsTime').checked;
+    const setup = document.getElementById('ceSetup').value.trim();
+    const steps = document.getElementById('ceSteps').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const errors = document.getElementById('ceErrors').value.trim();
+    if(!name || !setup || steps.length===0 || !errors){ alert('Completa al menos nombre, posición inicial, ejecución y error común.'); return; }
+    const btn = document.getElementById('ceSaveBtn'); btn.disabled = true; btn.textContent = 'Guardando...';
+    try{
+      await addCustomExercise({ name, group, level:'Agregado por usuario', setsCount, repsTarget, isTime, setup, steps, errors });
+      modal.remove();
+      renderPoolGrid();
+    }catch(e){
+      console.error(e); alert('No se pudo guardar. Revisa tu conexión.');
+      btn.disabled = false; btn.textContent = 'Guardar ejercicio';
+    }
+  };
 }
 
 /* ============ RUTINAS: LIST ============ */
@@ -1555,7 +1631,7 @@ function renderBuilder(c){
   });
 
   const grid = document.getElementById('builderGrid');
-  EXERCISES.filter(e=> st._builderGroup==='todos' || e.group===st._builderGroup).forEach(item=>{
+  allExercises().filter(e=> st._builderGroup==='todos' || e.group===st._builderGroup).forEach(item=>{
     const selected = st.builderSelected.includes(item.id);
     const card = document.createElement('div');
     card.className = 'pick-card' + (selected?' selected':'');
@@ -1796,7 +1872,7 @@ function renderHistorial(c){
 function renderProgreso(c){
   const streak = computeStreak(appData.history);
   const totalSessions = appData.history.length;
-  const exercisesWithData = EXERCISES.filter(e=>getProgressLog(e.id).length>0);
+  const exercisesWithData = allExercises().filter(e=>getProgressLog(e.id).length>0);
   const p = appData.profile;
   const objetivoLabel = {'bajar-grasa':'Bajar de grasa','ganar-musculo':'Ganar músculo','mantener':'Mantenerme / salud general'};
   const nivelLabel = {'principiante':'Principiante','intermedio':'Intermedio','avanzado':'Avanzado'};
