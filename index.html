@@ -36,6 +36,20 @@
     --tag-full:#7fd858;
     --radius:10px;
   }
+  html[data-theme="light"]{
+    --bg:#f4f5f7;
+    --panel:#ffffff;
+    --panel-2:#f0f1f3;
+    --panel-3:#e8e9ec;
+    --line:#dcdfe3;
+    --text:#1a1d21;
+    --text-dim:#6b7280;
+    --accent:#4d9c34;
+    --accent-dim:#bfe6ac;
+    --accent-soft:rgba(77,156,52,0.1);
+    --danger:#c0392b;
+    --gold:#b8860b;
+  }
   *{box-sizing:border-box;}
   html{ -webkit-text-size-adjust:100%; }
   body{
@@ -327,6 +341,17 @@
           <option value="avanzado">Avanzado</option>
         </select>
 
+        <label class="login-field-label">Deporte favorito (opcional)</label>
+        <select class="name-input" id="regDeporte" style="margin-bottom:14px;">
+          <option value="ninguno">Ninguno en particular</option>
+          <option value="tenis">Tenis</option>
+          <option value="futbol">Fútbol</option>
+          <option value="basquetbol">Básquetbol</option>
+          <option value="boxeo">Boxeo</option>
+          <option value="running">Running</option>
+          <option value="crossfit">Crossfit</option>
+        </select>
+
         <label class="login-field-label">Crea tu avatar</label>
         <div id="regAvatarBuilder" style="margin-bottom:6px;"></div>
 
@@ -346,8 +371,10 @@
 <div class="wrap">
   <header>
     <div class="header-user">
-      <h1><span class="dot"></span>Mi Entrenador</h1>
+      <h1><span class="dot"></span>Mi Entrenador <span id="versionBadge" style="font-size:9.5px;color:var(--text-dim);font-weight:600;cursor:pointer;vertical-align:middle;border:1px solid var(--line);border-radius:8px;padding:2px 6px;">v${APP_VERSION}</span></h1>
       <div style="display:flex;align-items:center;gap:8px;">
+        <button class="help-btn" id="themeBtn" title="Cambiar tema">🌙</button>
+        <button class="help-btn" id="notifBtn" title="Actividad de compañeros" style="position:relative;">🔔<span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;align-items:center;justify-content:center;font-weight:800;"></span></button>
         <button class="help-btn" id="helpBtn" title="Guía de uso">?</button>
         <div class="user-avatar" id="userAvatar"></div>
         <button class="logout-btn" id="logoutBtn">Salir</button>
@@ -373,10 +400,24 @@
   </div>
 </div>
 
+<div id="streakReminderBar" style="display:none;position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));background:var(--panel-3);border:1px solid var(--tag-lower);border-radius:12px;padding:12px 14px;z-index:60;display:flex;align-items:center;gap:10px;box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+  <span style="font-size:18px;">⏰</span>
+  <span style="flex:1;font-size:12.5px;" id="streakReminderText"></span>
+  <button id="streakReminderClose" style="background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;">✕</button>
+</div>
+
 <div id="guideModal">
   <div class="guide-card">
     <div class="guide-title">👋 ¡Bienvenido a Mi Entrenador!</div>
     <p class="guide-sub">Una guía rápida de cómo funciona la app.</p>
+
+    <div class="guide-step">
+      <div class="guide-step-icon">👤</div>
+      <div>
+        <p class="guide-step-title">Perfil</p>
+        <p class="guide-step-text">La primera pestaña. Ahí ves y editas tu avatar, tu nombre, edad, deporte favorito, y las preferencias de la app (incluye un 📖 Glosario si algún término no te queda claro).</p>
+      </div>
+    </div>
 
     <div class="guide-step">
       <div class="guide-step-icon">📋</div>
@@ -424,6 +465,26 @@
 
 <script>
 /* ============ DATA ============ */
+const APP_VERSION = "1.5.0";
+const CHANGELOG = [
+  { version:"1.5.0", items:[
+    "Nueva pestaña Perfil: avatar, datos, deporte y preferencias en un solo lugar.",
+    "Arreglo importante: la app ya no se queda cargando con mala señal.",
+    "Volumen semanal total, ejercicios descuidados y filtros en Historial.",
+    "Series/reps personalizadas por rutina (no globales).",
+  ]},
+  { version:"1.4.0", items:[
+    "Rutinas específicas por deporte (tenis, fútbol, básquetbol).",
+    "Botón para cambiar de ejercicio en pleno entrenamiento.",
+    "Pestaña Ideas para proponer y votar mejoras.",
+  ]},
+  { version:"1.3.0", items:[
+    "Avatar personalizable (piel, peinado, barba, género, camiseta).",
+    "Compañero de entrenamiento con código de invitación.",
+    "Notificaciones de actividad, logros y ranking mensual.",
+  ]},
+];
+
 const EXERCISES = [
   {id:"press-banca",name:"Press de banca con barra",group:"tren-superior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
    setup:"Acuéstate en el banco con los pies firmes en el piso, la barra alineada sobre tus ojos/pecho superior. Agarre un poco más ancho que los hombros.",
@@ -549,6 +610,212 @@ const EXERCISES = [
    setup:"De pie, mancuernas a la altura de los hombros.",
    steps:["Baja en sentadilla completa manteniendo el pecho arriba.","Al subir, empuja las mancuernas por encima de la cabeza en un solo flujo."],
    errors:"Evita hacer los dos movimientos por separado."},
+
+  // GLÚTEOS + ISQUIOTIBIALES (máquinas)
+  {id:"polea-patada-gluteo",name:"Polea patada de glúteo (cable kickback)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"De pie frente a la polea baja, tobillera enganchada a un pie, cuerpo ligeramente inclinado hacia adelante sujetando el equipo.",
+   steps:["Lleva la pierna hacia atrás y arriba contrayendo el glúteo, sin mover la cadera ni arquear la espalda.","Vuelve controlado a la posición inicial sin dejar caer el peso de golpe."],
+   errors:"No uses impulso de espalda; el movimiento debe sentirse en el glúteo, no en la zona lumbar."},
+  {id:"abductores-maquina",name:"Abducción de cadera en máquina (abductores)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"15-20",isTime:false,
+   setup:"Siéntate en la máquina con la espalda apoyada, rodillas contra los cojines laterales.",
+   steps:["Empuja las piernas hacia afuera contra la resistencia, contrayendo glúteo medio.","Vuelve controlado sin dejar que el peso golpee la pila."],
+   errors:"No uses balanceo del torso para ayudarte; el movimiento es solo de piernas."},
+  {id:"standing-hip-thrust",name:"Hip thrust de pie en polea (standing hip thrust)",group:"tren-inferior",level:"Intermedio",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"De pie frente a la polea baja, tobillera enganchada, cuerpo inclinado sujetando el soporte con ambas manos.",
+   steps:["Empuja la pierna hacia atrás extendiendo la cadera, apretando el glúteo al final del recorrido.","Vuelve controlado sin perder la postura del torso."],
+   errors:"Mantén la espalda neutra; evita arquear en exceso al extender la pierna."},
+  {id:"curl-femoral-tumbado",name:"Curl femoral tumbado en máquina (prone leg curl)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Acostado boca abajo en la máquina, con los tobillos bajo el rodillo acolchado.",
+   steps:["Flexiona las rodillas llevando el rodillo hacia los glúteos, contrayendo los femorales.","Baja controlado sin extender del todo de golpe."],
+   errors:"No levantes la cadera del banco durante el movimiento."},
+  {id:"calf-prensa-gastroc",name:"Elevación de pantorrilla en prensa de piernas (gastrocnemio)",group:"tren-inferior",level:"Principiante",setsCount:4,repsTarget:"15-20",isTime:false,
+   setup:"Sentado en la prensa de piernas, solo la punta de los pies apoyada en la plataforma, piernas casi extendidas.",
+   steps:["Empuja con la punta de los pies extendiendo el tobillo lo más posible.","Baja controlado hasta sentir estiramiento en la pantorrilla."],
+   errors:"No dobles las rodillas para ayudarte; el movimiento es solo del tobillo."},
+  {id:"aductores-maquina",name:"Aducción de cadera en máquina (aductores)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"15-20",isTime:false,
+   setup:"Siéntate en la máquina con las piernas abiertas apoyadas en los cojines.",
+   steps:["Junta las piernas contra la resistencia, contrayendo la cara interna del muslo.","Vuelve controlado a la posición abierta."],
+   errors:"Evita rebotar en el punto final; controla la vuelta a la posición inicial."},
+
+  // CUÁDRICEPS (máquinas)
+  {id:"cuadriceps-maquina",name:"Extensión de cuádriceps en máquina",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"Sentado en la máquina, espalda apoyada, tobillos detrás del rodillo acolchado.",
+   steps:["Extiende las rodillas levantando el rodillo hasta casi estirar las piernas.","Baja controlado sin dejar caer el peso de golpe."],
+   errors:"No bloquees la rodilla con fuerza en la parte alta; controla todo el recorrido."},
+
+  // ESPALDA Y BÍCEPS (máquinas)
+  {id:"remo-maquina",name:"Remo en máquina (pecho apoyado)",group:"espalda",level:"Principiante",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Siéntate con el pecho apoyado en el respaldo inclinado, sujeta las agarraderas con los brazos extendidos.",
+   steps:["Tira de las agarraderas hacia atrás llevando los codos hacia atrás y juntando los omóplatos.","Vuelve controlado hasta extender los brazos."],
+   errors:"No despegues el pecho del respaldo para generar impulso."},
+  {id:"remo-bajo-polea",name:"Remo bajo en polea (sentado)",group:"espalda",level:"Principiante",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Sentado frente a la polea baja, pies apoyados en la plataforma, rodillas con ligera flexión, sujeta la barra o agarradera.",
+   steps:["Tira del agarre hacia el abdomen manteniendo la espalda recta, llevando los codos hacia atrás.","Vuelve controlado dejando que el torso se incline levemente hacia adelante."],
+   errors:"No uses balanceo del torso hacia atrás para tirar más peso del que puedes controlar."},
+  {id:"remo-polea-pie",name:"Remo en polea de pie (remo polea)",group:"espalda",level:"Intermedio",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"De pie frente a la polea a la altura media, pies firmes, ligera flexión de rodillas.",
+   steps:["Tira del agarre hacia el torso llevando el codo hacia atrás, manteniendo el core firme.","Vuelve controlado sin dejar que el peso te desestabilice."],
+   errors:"No rotes el torso para compensar; mantén la cadera y hombros alineados."},
+  {id:"biceps-maquina",name:"Curl de bíceps en máquina",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"Siéntate con los brazos apoyados en el soporte acolchado, sujetando las agarraderas.",
+   steps:["Flexiona los codos llevando el agarre hacia los hombros.","Baja controlado hasta extender los brazos por completo."],
+   errors:"No levantes los hombros del respaldo para ayudarte con impulso."},
+  {id:"biceps-barra",name:"Curl de bíceps con barra",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"De pie, barra sujeta con agarre supino al ancho de hombros, codos pegados al torso.",
+   steps:["Sube la barra flexionando los codos, sin mover el hombro ni balancear la espalda.","Baja controlado hasta extender los brazos."],
+   errors:"No eches el torso hacia atrás para 'lanzar' la barra hacia arriba."},
+
+  // PECHO Y TRÍCEPS (máquinas y variantes con barra)
+  {id:"elev-frontal-mancuerna",name:"Elevación frontal con mancuerna (hombro)",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"De pie, mancuernas frente a los muslos, palmas mirando hacia el cuerpo.",
+   steps:["Eleva una o ambas mancuernas hacia adelante hasta la altura del hombro.","Baja controlado sin dejar caer el peso."],
+   errors:"No uses impulso de cadera; el movimiento debe venir solo del hombro."},
+  {id:"press-militar-barra",name:"Press militar con barra",group:"tren-superior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"De pie o sentado, barra apoyada a la altura de la clavícula, agarre un poco más ancho que los hombros.",
+   steps:["Empuja la barra hacia arriba en línea recta hasta casi extender los codos.","Baja controlado hasta la posición inicial."],
+   errors:"No arquees en exceso la espalda baja; mantén el core apretado durante todo el movimiento."},
+  {id:"pectoral-fly-maquina",name:"Aperturas en máquina (pectoral fly / mariposa)",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"Siéntate con la espalda apoyada, brazos apoyados en las palancas a la altura del pecho.",
+   steps:["Junta las palancas al frente del pecho apretando el pectoral.","Vuelve controlado hasta sentir estiramiento, sin abrir en exceso."],
+   errors:"No dejes que el peso golpee la pila en cada repetición; controla toda la vuelta."},
+  {id:"triceps-polea-recta",name:"Extensión de tríceps en polea (barra recta)",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"12-15",isTime:false,
+   setup:"De pie frente a la polea alta, barra recta, codos pegados al torso.",
+   steps:["Extiende los brazos hacia abajo sin mover los codos del costado.","Vuelve controlado hasta que el antebrazo quede casi paralelo al piso."],
+   errors:"Evita que los codos se abran hacia los lados durante el movimiento."},
+  {id:"triceps-frances-polea",name:"Tríceps francés en polea (barra V)",group:"tren-superior",level:"Intermedio",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"De pie o sentado frente a la polea alta, barra en V, brazos extendidos por encima o frente a la cabeza según variante.",
+   steps:["Flexiona los codos bajando la barra detrás de la cabeza o hacia el pecho, manteniendo los codos fijos.","Extiende de nuevo contrayendo el tríceps."],
+   errors:"No dejes que los codos se abran hacia los lados; deben permanecer apuntando al frente."},
+
+  // RENDIMIENTO DEPORTIVO
+  {id:"sprints-cortos",name:"Sprints cortos (10-20 m)",group:"cuerpo-completo",level:"Intermedio",setsCount:6,repsTarget:"10-20 m",isTime:false,sports:["futbol","basquetbol"],
+   setup:"Marca dos puntos a 10-20 metros de distancia, posición de salida atlética.",
+   steps:["Corre al máximo esfuerzo entre los dos puntos.","Camina de vuelta para recuperar antes de la siguiente repetición."],
+   errors:"No sacrifiques la técnica de carrera por velocidad; mantén los brazos y el torso relajados."},
+  {id:"sprint-20m-crono",name:"Sprint cronometrado (20 m)",group:"cuerpo-completo",level:"Intermedio",setsCount:4,repsTarget:"20 m",isTime:true,sports:["futbol"],metricType:"tiempo",betterIsLower:true,
+   setup:"Marca 20 metros exactos con conos, cronómetro listo (el tuyo o el de un compañero).",
+   steps:["Sal desde parado o con salida atlética y corre los 20 metros al máximo esfuerzo.","Registra el tiempo que tardaste en el campo de 'reps' (en segundos)."],
+   errors:"Usa siempre la misma distancia y tipo de salida para que tus tiempos sean comparables entre sesiones."},
+  {id:"salto-vertical-cmj",name:"Salto vertical con contramovimiento",group:"tren-inferior",level:"Intermedio",setsCount:4,repsTarget:"6-8",isTime:false,sports:["basquetbol","futbol","tenis"],metricType:"altura",
+   setup:"De pie, pies al ancho de hombros.",
+   steps:["Baja rápido a media sentadilla y salta lo más alto posible extendiendo cadera, rodillas y tobillos.","Aterriza suave flexionando las rodillas y reinicia."],
+   errors:"Amortigua bien el aterrizaje; no dejes que las rodillas colapsen hacia adentro."},
+  {id:"escalera-agilidad",name:"Escalera de agilidad (agility ladder)",group:"cuerpo-completo",level:"Intermedio",setsCount:4,repsTarget:"20-30",isTime:true,sports:["futbol","basquetbol","tenis"],metricType:"tiempo",betterIsLower:true,
+   setup:"Escalera de agilidad extendida en el piso (o líneas marcadas cada ~40cm).",
+   steps:["Realiza pasos rápidos y coordinados a través de la escalera (in-in-out-out, carioca, etc.).","Mantén el torso erguido y la mirada al frente."],
+   errors:"No mires al piso; prioriza la rapidez de pies sobre la fuerza de cada paso."},
+  {id:"cambios-direccion",name:"Cambios de dirección (conos / shuttle run)",group:"cuerpo-completo",level:"Intermedio",setsCount:5,repsTarget:"20-30",isTime:true,sports:["futbol","basquetbol","tenis"],metricType:"tiempo",betterIsLower:true,
+   setup:"Coloca 2-4 conos separados por 5 metros.",
+   steps:["Corre hacia el primer cono, frena y cambia de dirección hacia el siguiente.","Mantén las rodillas flexionadas y el centro de gravedad bajo en cada frenada."],
+   errors:"No frenes con las piernas totalmente extendidas; aumenta el riesgo de lesión de rodilla."},
+  {id:"rotacion-tronco-medball",name:"Rotación de tronco con balón medicinal",group:"abdomen",level:"Intermedio",setsCount:3,repsTarget:"10-12 por lado",isTime:false,sports:["tenis","futbol","basquetbol"],
+   setup:"De pie, sujeta un balón medicinal frente al pecho, pies al ancho de hombros.",
+   steps:["Rota el torso hacia un lado y lanza o simula el lanzamiento del balón contra una pared, generando potencia desde la cadera.","Vuelve al centro y repite hacia el otro lado."],
+   errors:"El giro debe venir de la cadera y el core, no solo de los brazos."},
+  {id:"zancada-lateral",name:"Zancada lateral (lateral lunge)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"10-12 por lado",isTime:false,sports:["tenis","basquetbol","futbol"],
+   setup:"De pie, pies juntos.",
+   steps:["Da un paso amplio hacia un lado, flexionando esa rodilla y manteniendo la otra pierna extendida.","Empuja con la pierna flexionada para volver al centro."],
+   errors:"Mantén el pecho arriba y la rodilla flexionada alineada con la punta del pie."},
+  {id:"manguito-rotador-banda",name:"Rotación externa de hombro con banda (manguito rotador)",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"15-20 por lado",isTime:false,sports:["tenis"],
+   setup:"Codo pegado al torso a 90°, banda elástica anclada al costado.",
+   steps:["Rota el antebrazo hacia afuera manteniendo el codo fijo en el costado.","Vuelve controlado a la posición inicial."],
+   errors:"No despegues el codo del torso; el movimiento es solo de rotación del hombro."},
+  {id:"salto-cajon",name:"Salto al cajón (box jump)",group:"tren-inferior",level:"Intermedio-Avanzado",setsCount:4,repsTarget:"6-8",isTime:false,sports:["basquetbol","futbol"],metricType:"altura",
+   setup:"De pie frente a un cajón o superficie estable, pies al ancho de hombros.",
+   steps:["Flexiona rodillas y cadera, luego salta con ambos pies sobre el cajón.","Baja caminando (no saltando) para proteger las rodillas."],
+   errors:"Elige una altura que puedas aterrizar con control; no arriesgues con cajones demasiado altos."},
+  {id:"core-antirrotacion",name:"Core anti-rotación (Pallof press)",group:"abdomen",level:"Intermedio",setsCount:3,repsTarget:"10-12 por lado",isTime:false,sports:["tenis","futbol","basquetbol"],
+   setup:"De pie, de costado a la polea a la altura del pecho, sujeta el agarre con ambas manos frente al esternón.",
+   steps:["Extiende los brazos hacia adelante resistiendo la rotación que genera la polea.","Vuelve controlado sin dejar que el torso gire."],
+   errors:"Todo el trabajo es evitar que el torso rote; si giras, el peso es demasiado alto."},
+  {id:"copenhagen-plank",name:"Plancha Copenhague (aductores, prevención de lesiones)",group:"tren-inferior",level:"Intermedio-Avanzado",setsCount:3,repsTarget:"15-20 por lado",isTime:true,sports:["futbol","basquetbol"],
+   setup:"De lado, el pie de la pierna superior apoyado en un banco, antebrazo de ese mismo lado en el piso.",
+   steps:["Eleva la cadera formando una línea recta entre hombro, cadera y tobillo.","Mantén la posición contrayendo el aductor de la pierna apoyada en el banco."],
+   errors:"No dejes que la cadera caiga; si es muy difícil, apoya la rodilla inferior en el piso como progresión."},
+  {id:"sprint-intervalos",name:"Sprint con cambio de ritmo (intervalos)",group:"cuerpo-completo",level:"Avanzado",setsCount:6,repsTarget:"30 fuerte/30 suave",isTime:true,sports:["futbol"],
+   setup:"Espacio abierto de al menos 30-40 metros.",
+   steps:["Alterna 30 segundos de carrera fuerte con 30 segundos de trote suave o caminata.","Repite el ciclo manteniendo buena técnica de carrera."],
+   errors:"No arranques al 100% desde el primer intervalo; sube la intensidad progresivamente."},
+  {id:"salto-lateral-unipodal",name:"Salto lateral a una pierna (bounds)",group:"tren-inferior",level:"Avanzado",setsCount:3,repsTarget:"8-10 por lado",isTime:false,sports:["basquetbol","tenis","futbol"],
+   setup:"De pie sobre una pierna, ligera flexión de rodilla.",
+   steps:["Salta hacia el lado aterrizando sobre la otra pierna, absorbiendo el impacto con la rodilla flexionada.","Estabiliza 1 segundo antes de repetir hacia el lado contrario."],
+   errors:"Prioriza un aterrizaje controlado y estable sobre la velocidad del salto."},
+
+  // BOXEO
+  {id:"guardia-postura",name:"Guardia y postura básica",group:"cuerpo-completo",level:"Principiante",setsCount:3,repsTarget:"60",isTime:true,sports:["boxeo"],
+   setup:"Pies separados al ancho de hombros, uno ligeramente adelantado según tu mano dominante, puños a la altura de la mejilla, codos pegados al torso.",
+   steps:["Mantén la posición firme, rodillas con ligera flexión, mentón abajo y mirada al frente.","Practica desplazarte hacia adelante/atrás y a los lados sin perder la guardia."],
+   errors:"No bajes las manos ni te pares con las piernas totalmente rectas; pierdes equilibrio y protección."},
+  {id:"shadow-boxing",name:"Sombra (shadow boxing)",group:"cuerpo-completo",level:"Principiante",setsCount:4,repsTarget:"120",isTime:true,sports:["boxeo"],
+   setup:"En guardia, sin oponente ni saco, con espacio suficiente para moverte.",
+   steps:["Lanza combinaciones de golpes (jab, cross, gancho) al aire, regresando siempre a la guardia entre golpe y golpe.","Combina con desplazamientos y esquivas suaves."],
+   errors:"No 'trabes' el codo al extender el golpe; termina cada golpe relajado para volver rápido a la guardia."},
+  {id:"golpes-saco",name:"Golpes al saco (bag work)",group:"cuerpo-completo",level:"Intermedio",setsCount:5,repsTarget:"120",isTime:true,sports:["boxeo"],
+   setup:"Frente al saco de boxeo, en guardia, a una distancia donde tu golpe llegue con el brazo casi extendido.",
+   steps:["Lanza combinaciones golpeando con los nudillos correctos (índice y medio), rotando la cadera en cada golpe.","Vuelve a la guardia después de cada combinación."],
+   errors:"Si no tienes buena técnica o vendas/guantes, prioriza el shadow boxing para evitar lesiones en muñeca o nudillos."},
+  {id:"esquiva-lateral",name:"Esquiva lateral (slip)",group:"cuerpo-completo",level:"Intermedio",setsCount:3,repsTarget:"45",isTime:true,sports:["boxeo"],
+   setup:"En guardia, rodillas con flexión suave.",
+   steps:["Flexiona ligeramente las rodillas y mueve la cabeza hacia un lado como si esquivaras un golpe recto, sin mover mucho los pies.","Vuelve al centro y repite hacia el otro lado."],
+   errors:"El movimiento es de piernas y cadera, no solo del cuello; evita esquivar únicamente doblando el cuello."},
+  {id:"rotacion-cadera-banda",name:"Rotación de cadera con banda (potencia de golpe)",group:"abdomen",level:"Intermedio",setsCount:3,repsTarget:"12-15 por lado",isTime:false,sports:["boxeo"],
+   setup:"Banda elástica anclada a la altura de la cadera, de costado a la dirección del anclaje, sujetando el otro extremo con ambas manos frente al pecho.",
+   steps:["Rota la cadera y el torso alejándote del anclaje, generando el mismo giro que usarías al lanzar un cross.","Vuelve controlado a la posición inicial."],
+   errors:"La potencia viene de la cadera y el core, no solo de los brazos tirando de la banda."},
+
+  // RUNNING
+  {id:"trote-continuo",name:"Trote / carrera continua",group:"cuerpo-completo",level:"Principiante",setsCount:1,repsTarget:"20-40",isTime:true,sports:["running"],
+   setup:"Ropa y calzado de running, ruta plana para empezar.",
+   steps:["Corre a un ritmo cómodo y sostenible donde puedas mantener una conversación (ritmo aeróbico).","Aumenta el tiempo total semana a semana en vez de la velocidad."],
+   errors:"No aumentes el tiempo total en más de ~10% por semana; es la causa más común de lesiones en corredores nuevos."},
+  {id:"repeticiones-cuesta",name:"Repeticiones en subida (hill repeats)",group:"tren-inferior",level:"Intermedio",setsCount:6,repsTarget:"30-45",isTime:true,sports:["running"],
+   setup:"Busca una cuesta de pendiente moderada, de unos 50-100 metros.",
+   steps:["Sube corriendo a intensidad alta manteniendo buena técnica (rodillas arriba, brazos activos).","Baja caminando o trotando suave para recuperar antes de la siguiente repetición."],
+   errors:"No sacrifiques la postura por velocidad; una mala técnica cuesta arriba sobrecarga las rodillas."},
+  {id:"skipping-tecnica",name:"Skipping (técnica de carrera)",group:"tren-inferior",level:"Principiante",setsCount:4,repsTarget:"30",isTime:true,sports:["running"],
+   setup:"De pie, en el lugar o avanzando lentamente.",
+   steps:["Eleva las rodillas alternadamente a la altura de la cadera con un ritmo rápido y controlado, aterrizando en la punta del pie.","Mantén el torso erguido y los brazos acompañando el movimiento."],
+   errors:"No dejes caer el talón con fuerza; el contacto debe ser suave y rápido."},
+  {id:"monster-walk-banda",name:"Monster walk con banda (glúteo medio)",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"15-20 pasos",isTime:false,sports:["running"],
+   setup:"Banda elástica alrededor de los tobillos o justo arriba de las rodillas, piernas ligeramente flexionadas.",
+   steps:["Da pasos laterales manteniendo tensión constante en la banda, sin que las rodillas colapsen hacia adentro.","Repite hacia el lado contrario."],
+   errors:"Este ejercicio es clave para prevenir dolor de rodilla en corredores; no te saltes el rango completo de movimiento."},
+  {id:"movilidad-tobillo-cadera",name:"Movilidad dinámica de tobillo y cadera",group:"tren-inferior",level:"Principiante",setsCount:2,repsTarget:"60",isTime:true,sports:["running","tenis","futbol","basquetbol"],
+   setup:"De pie, espacio despejado.",
+   steps:["Realiza círculos de tobillo, balanceos de pierna hacia adelante/atrás y hacia los lados, y zancadas con giro de torso.","Hazlo como calentamiento antes de correr o entrenar."],
+   errors:"No confundas esto con estiramiento estático; los movimientos deben ser fluidos y controlados, no mantenidos."},
+
+  // CROSSFIT
+  {id:"wall-ball",name:"Wall ball (balón medicinal a la pared)",group:"cuerpo-completo",level:"Intermedio",setsCount:5,repsTarget:"12-15",isTime:false,sports:["crossfit"],
+   setup:"De pie frente a una pared, sujeta un balón medicinal a la altura del pecho, pies al ancho de hombros.",
+   steps:["Baja en sentadilla completa y al subir, lanza el balón hacia un punto marcado en la pared usando la fuerza de las piernas.","Recibe el balón y baja de nuevo directo a la siguiente repetición."],
+   errors:"La potencia debe venir de las piernas extendiéndose, no solo de los brazos empujando el balón."},
+  {id:"doble-salto-cuerda",name:"Doble salto de cuerda (double unders)",group:"tren-inferior",level:"Avanzado",setsCount:5,repsTarget:"30-40",isTime:false,sports:["crossfit","boxeo"],
+   setup:"Cuerda de saltar ajustada a tu altura, de pie con la cuerda detrás de los talones.",
+   steps:["Salta más alto de lo normal y gira la cuerda dos veces bajo tus pies en un solo salto.","Mantén las muñecas haciendo el giro, no los brazos completos."],
+   errors:"Practica primero el salto simple; el doble salto requiere buen ritmo antes de intentarlo en repeticiones altas."},
+  {id:"clean-and-press",name:"Cargada y press (clean and press)",group:"cuerpo-completo",level:"Avanzado",setsCount:5,repsTarget:"5-6",isTime:false,sports:["crossfit"],
+   setup:"Barra o mancuernas en el piso frente a ti, pies al ancho de cadera.",
+   steps:["Levanta el peso del piso hasta los hombros en un solo movimiento explosivo (cargada), con la espalda recta.","Desde los hombros, empuja el peso por encima de la cabeza hasta extender los brazos (press)."],
+   errors:"Es un movimiento técnico; si no dominas la cargada, practica primero peso muerto y press por separado."},
+  {id:"toes-to-bar",name:"Toes to bar",group:"abdomen",level:"Avanzado",setsCount:4,repsTarget:"8-10",isTime:false,sports:["crossfit"],
+   setup:"Cuélgate de una barra con los brazos extendidos, agarre firme.",
+   steps:["Eleva las piernas rectas (o flexionadas como progresión) hasta tocar la barra con los pies.","Baja controlado sin balancear el cuerpo en exceso."],
+   errors:"Si aún no llegas a la barra, practica primero elevaciones de rodillas al pecho como progresión."},
+  {id:"remo-ergometro",name:"Remo en máquina (rowing erg)",group:"cuerpo-completo",level:"Intermedio",setsCount:1,repsTarget:"10-15",isTime:true,sports:["crossfit","running"],
+   setup:"Sentado en la máquina de remo, pies asegurados, sujeta la manija con ambas manos.",
+   steps:["Empuja con las piernas primero, luego inclina el torso hacia atrás, y finalmente tira de los brazos hacia el pecho.","Vuelve en el orden inverso: brazos, torso, piernas."],
+   errors:"No tires solo con los brazos; el 60-70% de la potencia del remo viene de las piernas."},
+];
+
+const SPORTS = [
+  {key:'ninguno', label:'Ninguno en particular'},
+  {key:'tenis', label:'Tenis'},
+  {key:'futbol', label:'Fútbol'},
+  {key:'basquetbol', label:'Básquetbol'},
+  {key:'boxeo', label:'Boxeo'},
+  {key:'running', label:'Running'},
+  {key:'crossfit', label:'Crossfit'},
 ];
 
 const GROUPS = [
@@ -596,14 +863,15 @@ function renderAchievements(){
     grid.appendChild(card);
   });
 }
-let appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90, nutrition:{entries:[]} };
+let appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90, nutrition:{entries:[]}, partners:[], exerciseOverrides:{}, favoriteRoutines:[], cardioLog:[], wodLog:[] };
 let dataLoaded = false;
 
 let state = {
   tab: "pool",
   pool: { group: "todos", search: "", open: null },
   rutinas: { view: "list", generated: {}, builderName: "", builderSelected: [], activeSession: null, _builderGroup:"todos", community: null, sessionNote: "" },
-  progreso: { chartExId: null, leaderboard: null, monthly: null, activity: null, members: null }
+  progreso: { chartExId: null, leaderboard: null, monthly: null, activity: null, members: null },
+  ideas: null
 };
 
 let restTimer = { active:false, remaining:0, total:90, intervalId:null };
@@ -623,6 +891,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+try{
+  db.enablePersistence({synchronizeTabs:true}).catch(err=>{
+    console.warn('Persistencia offline no disponible:', err.code);
+  });
+}catch(e){ console.warn('No se pudo activar persistencia offline', e); }
 let currentUser = null;
 
 function usernameToEmail(u){
@@ -844,6 +1117,7 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
     const peso = document.getElementById('regPeso').value;
     const objetivo = document.getElementById('regObjetivo').value;
     const nivel = document.getElementById('regNivel').value;
+    const deporte = document.getElementById('regDeporte').value;
     const terms = document.getElementById('regTerms').checked;
 
     if(!nombre || !apellido){ showLoginError('Completa tu nombre y apellido.'); return; }
@@ -855,7 +1129,7 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
       edad: edad ? Number(edad) : null,
       altura: altura ? Number(altura) : null,
       peso: peso ? Number(peso) : null,
-      objetivo, nivel,
+      objetivo, nivel, deporte,
       avatar: { ...selectedAvatar }
     };
   }
@@ -880,6 +1154,7 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
 
 document.getElementById('logoutBtn').onclick = async ()=>{
   stopRestTimer();
+  if(notifUnsubscribe){ notifUnsubscribe(); notifUnsubscribe = null; }
   await auth.signOut();
 };
 
@@ -902,6 +1177,8 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('appRoot').style.display = 'block';
     await loadData();
     await fetchCustomExercises();
+    applyTheme(appData.theme || 'dark');
+    setupPartnerNotifications();
     const p = appData.profile;
     const avatarEl = document.getElementById('userAvatar');
     const initials = p && p.nombre ? ((p.nombre[0]||'').toUpperCase() + (p.apellido ? p.apellido[0].toUpperCase() : '')) : (user.displayName || 'U')[0].toUpperCase();
@@ -909,13 +1186,123 @@ auth.onAuthStateChanged(async (user)=>{
     render();
     if(!appData.hasSeenGuide){
       document.getElementById('guideModal').style.display = 'flex';
+    } else if(appData.lastSeenVersion !== APP_VERSION){
+      showChangelogModal();
     }
+    checkStreakReminder();
   } else {
     currentUser = null;
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appRoot').style.display = 'none';
   }
 });
+
+/* ============ NOTIFICACIONES DE COMPAÑEROS ============ */
+let partnerActivityUnread = [];
+let notifUnsubscribe = null;
+function currentMonthKeyForNotif(){ return new Date().toISOString().slice(0,7); }
+function setupPartnerNotifications(){
+  if(notifUnsubscribe){ notifUnsubscribe(); notifUnsubscribe = null; }
+  partnerActivityUnread = [];
+  updateNotifBadge();
+  if(!appData.partners || appData.partners.length===0) return;
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission().catch(()=>{});
+  }
+  let firstLoad = true;
+  notifUnsubscribe = db.collection('activityFeed')
+    .where('uid','in', appData.partners.slice(0,10))
+    .orderBy('date','desc').limit(20)
+    .onSnapshot(snap=>{
+      if(firstLoad){ firstLoad = false; return; } // no notificar por el historial ya existente
+      snap.docChanges().forEach(change=>{
+        if(change.type==='added'){
+          const data = change.doc.data();
+          partnerActivityUnread.unshift({ id:change.doc.id, ...data });
+          if('Notification' in window && Notification.permission==='granted'){
+            try{ new Notification('💪 ' + data.name + ' entrenó', { body: 'Completó "' + data.routineName + '"' }); }catch(e){}
+          }
+        }
+      });
+      updateNotifBadge();
+    }, err=>console.error('Error escuchando actividad de compañeros', err));
+}
+function updateNotifBadge(){
+  const badge = document.getElementById('notifBadge');
+  if(!badge) return;
+  if(partnerActivityUnread.length>0){
+    badge.style.display = 'flex';
+    badge.textContent = partnerActivityUnread.length;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+document.getElementById('notifBtn').onclick = ()=>{
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const items = partnerActivityUnread.length>0 ? partnerActivityUnread : [{name:null}];
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">🔔 Actividad de compañeros</div>
+      <p class="guide-sub">${partnerActivityUnread.length>0 ? 'Lo que hicieron tus compañeros desde tu última visita.' : 'No tienes notificaciones nuevas. Agrega compañeros en Progreso para recibir avisos cuando entrenen.'}</p>
+      ${partnerActivityUnread.map(a=>`<div class="hist-card"><div class="hist-title" style="font-size:13px;">${a.name} completó "${a.routineName}"</div><div class="hist-date">${new Date(a.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}
+      <button class="btn btn-primary btn-block" id="notifCloseBtn" style="margin-top:10px;">Cerrar</button>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('notifCloseBtn').onclick = ()=>{
+    modal.remove();
+    partnerActivityUnread = [];
+    updateNotifBadge();
+  };
+};
+
+const GLOSSARY = [
+  {term:"PR (Récord Personal)", def:"El peso, reps o marca más alta que has logrado en un ejercicio."},
+  {term:"Superserie", def:"Dos o más ejercicios que haces seguidos, sin descansar entre ellos, y descansas solo al terminar la ronda completa."},
+  {term:"Racha", def:"Cuántas rutinas seguidas has completado sin dejar pasar más de ~3 días entre una y otra."},
+  {term:"Volumen", def:"El total de peso que levantaste en la semana (peso × repeticiones, sumado en todos tus ejercicios)."},
+  {term:"Semana de descarga", def:"Una semana donde bajas el peso o el volumen a propósito, para que tu cuerpo se recupere mejor después de varias semanas entrenando fuerte."},
+  {term:"Nivel de experiencia", def:"Principiante, Intermedio o Avanzado — te ayuda a elegir rutinas con la dificultad adecuada para ti."},
+  {term:"Objetivo", def:"Lo que buscas lograr: bajar de grasa, ganar músculo, o simplemente mantenerte sano."},
+];
+function showGlossaryModal(){
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">📖 Glosario</div>
+      <p class="guide-sub">Términos que vas a ver dentro de la app.</p>
+      ${GLOSSARY.map(g=>`<div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:700;color:var(--accent);">${g.term}</div><div style="font-size:12.5px;color:#d6dade;margin-top:2px;">${g.def}</div></div>`).join('')}
+      <button class="btn btn-primary btn-block" id="glossaryCloseBtn">Cerrar</button>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('glossaryCloseBtn').onclick = ()=> modal.remove();
+}
+
+function showChangelogModal(){
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">🎉 Novedades</div>
+      <p class="guide-sub">Esto es lo que se agregó recientemente a la app.</p>
+      ${CHANGELOG.map(entry=>`
+        <div style="margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:6px;">v${entry.version}</div>
+          <ul style="margin:0;padding-left:18px;font-size:12.5px;color:#d6dade;line-height:1.6;">
+            ${entry.items.map(i=>`<li>${i}</li>`).join('')}
+          </ul>
+        </div>`).join('')}
+      <button class="btn btn-primary btn-block" id="changelogCloseBtn">Entendido</button>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('changelogCloseBtn').onclick = async ()=>{
+    modal.remove();
+    appData.lastSeenVersion = APP_VERSION;
+    await saveData();
+  };
+}
+document.getElementById('versionBadge').onclick = ()=> showChangelogModal();
 
 document.getElementById('helpBtn').onclick = ()=>{
   document.getElementById('guideModal').style.display = 'flex';
@@ -929,41 +1316,71 @@ document.getElementById('guideCloseBtn').onclick = async ()=>{
 };
 
 /* ============ STORAGE (Firestore por usuario) ============ */
+function mergeUserDoc(parsed){
+  appData = Object.assign({customRoutines:[],history:[],progress:{},bodyWeight:{log:[]},unit:"kg",restSeconds:90,nutrition:{entries:[]},partners:[],exerciseOverrides:{},favoriteRoutines:[],cardioLog:[],wodLog:[]}, parsed);
+  if(!appData.bodyWeight) appData.bodyWeight = {log:[]};
+  if(!appData.nutrition) appData.nutrition = {entries:[]};
+}
+async function createNewUserDoc(){
+  appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90, nutrition:{entries:[]}, partners:[], exerciseOverrides:{}, favoriteRoutines:[], cardioLog:[], wodLog:[] };
+  if(pendingProfile){
+    appData.profile = {
+      nombre: pendingProfile.nombre, apellido: pendingProfile.apellido,
+      edad: pendingProfile.edad, altura: pendingProfile.altura,
+      objetivo: pendingProfile.objetivo, nivel: pendingProfile.nivel, deporte: pendingProfile.deporte || 'ninguno',
+      avatar: pendingProfile.avatar
+    };
+    if(pendingProfile.peso){
+      appData.bodyWeight.log.push({ date: new Date().toISOString(), weight: pendingProfile.peso });
+    }
+    pendingProfile = null;
+  }
+  await db.collection('users').doc(currentUser.uid).set(appData);
+  try{
+    const p = appData.profile;
+    const name = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
+    await db.collection('members').doc(currentUser.uid).set({
+      name, avatar: (p && p.avatar) || null, avatarColor: (p && p.avatarColor) || '#7fd858', joinedAt: new Date().toISOString()
+    });
+  }catch(e){ console.error('Error registrando miembro', e); }
+}
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=> setTimeout(()=>reject(new Error('timeout')), ms))
+  ]);
+}
 async function loadData(){
   dataLoaded = false;
+  let gotSomething = false;
+
+  // 1) Intenta primero desde la caché local del dispositivo — es instantáneo y no depende de internet.
   try{
-    const doc = await db.collection('users').doc(currentUser.uid).get();
+    const cacheDoc = await db.collection('users').doc(currentUser.uid).get({ source: 'cache' });
+    if(cacheDoc.exists){
+      mergeUserDoc(cacheDoc.data());
+      gotSomething = true;
+      dataLoaded = true;
+      render(); // mostramos algo de inmediato, en vez de dejar la pantalla de "Cargando..."
+    }
+  }catch(e){ /* aún no hay nada en caché, es normal la primera vez */ }
+
+  // 2) Luego intenta traer la versión más reciente del servidor, con un límite de tiempo.
+  try{
+    const doc = await withTimeout(db.collection('users').doc(currentUser.uid).get({ source: 'server' }), 9000);
     if(doc.exists){
-      const parsed = doc.data();
-      appData = Object.assign({customRoutines:[],history:[],progress:{},bodyWeight:{log:[]},unit:"kg",restSeconds:90,nutrition:{entries:[]}}, parsed);
-      if(!appData.bodyWeight) appData.bodyWeight = {log:[]};
-      if(!appData.nutrition) appData.nutrition = {entries:[]};
-    } else {
-      appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90, nutrition:{entries:[]} };
-      if(pendingProfile){
-        appData.profile = {
-          nombre: pendingProfile.nombre, apellido: pendingProfile.apellido,
-          edad: pendingProfile.edad, altura: pendingProfile.altura,
-          objetivo: pendingProfile.objetivo, nivel: pendingProfile.nivel,
-          avatar: pendingProfile.avatar
-        };
-        if(pendingProfile.peso){
-          appData.bodyWeight.log.push({ date: new Date().toISOString(), weight: pendingProfile.peso });
-        }
-        pendingProfile = null;
-      }
-      await db.collection('users').doc(currentUser.uid).set(appData);
-      try{
-        const p = appData.profile;
-        const name = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
-        await db.collection('members').doc(currentUser.uid).set({
-          name, avatar: (p && p.avatar) || null, avatarColor: (p && p.avatarColor) || '#7fd858', joinedAt: new Date().toISOString()
-        });
-      }catch(e){ console.error('Error registrando miembro', e); }
+      mergeUserDoc(doc.data());
+      gotSomething = true;
+    } else if(!gotSomething){
+      await createNewUserDoc();
+      gotSomething = true;
     }
   }catch(e){
-    console.error('Error cargando datos de Firestore', e);
-    alert('No se pudo conectar con la base de datos. Revisa tu conexión a internet.');
+    console.warn('No se pudo sincronizar con el servidor (usando datos locales si existen):', e.message||e);
+    if(!gotSomething){
+      // Sin caché y sin servidor disponible: igual dejamos entrar con datos vacíos en vez de bloquear la app.
+      appData = { customRoutines: [], history: [], progress: {}, bodyWeight:{log:[]}, unit: "kg", restSeconds: 90, nutrition:{entries:[]}, partners:[], exerciseOverrides:{}, favoriteRoutines:[], cardioLog:[], wodLog:[] };
+    }
   }
   dataLoaded = true;
 }
@@ -986,7 +1403,7 @@ function importBackup(file){
   reader.onload = async (e)=>{
     try{
       const parsed = JSON.parse(e.target.result);
-      appData = Object.assign({customRoutines:[],history:[],progress:{},bodyWeight:{log:[]},unit:"kg",restSeconds:90,nutrition:{entries:[]}}, parsed);
+      appData = Object.assign({customRoutines:[],history:[],progress:{},bodyWeight:{log:[]},unit:"kg",restSeconds:90,nutrition:{entries:[]},partners:[],exerciseOverrides:{},favoriteRoutines:[],cardioLog:[],wodLog:[]}, parsed);
       await saveData();
       render();
       alert('Respaldo importado correctamente.');
@@ -1004,12 +1421,18 @@ function shuffle(arr){
 let CUSTOM_EXERCISES = [];
 function allExercises(){ return EXERCISES.concat(CUSTOM_EXERCISES); }
 function byGroup(g){ return allExercises().filter(e=>e.group===g); }
+function getVariants(exId, n){
+  n = n || 4;
+  const ex = findEx(exId);
+  if(!ex) return [];
+  return shuffle(byGroup(ex.group).filter(e=>e.id!==exId)).slice(0,n);
+}
 function findEx(id){ return allExercises().find(e=>e.id===id); }
 async function fetchCustomExercises(){
   try{
-    const snap = await db.collection('customExercises').orderBy('createdAt','desc').get();
+    const snap = await withTimeout(db.collection('customExercises').orderBy('createdAt','desc').get(), 8000);
     CUSTOM_EXERCISES = snap.docs.map(d=>({ id:'custom_'+d.id, ...d.data(), isCustom:true }));
-  }catch(e){ console.error('Error cargando ejercicios personalizados', e); CUSTOM_EXERCISES = []; }
+  }catch(e){ console.error('Error cargando ejercicios personalizados', e); if(CUSTOM_EXERCISES.length===0) CUSTOM_EXERCISES = []; }
 }
 async function addCustomExercise(data){
   const p = appData.profile;
@@ -1078,6 +1501,77 @@ function generateRoutine(templateKey){
   return { name: tpl.title, exercises: picked.map(e=>e.id) };
 }
 
+const LEVEL_TIERS = [
+  {key:'principiante', title:'Principiante', desc:'Full body, movimientos simples y controlados, 4 ejercicios.', matches:(l)=>l.includes('Principiante'), count:4, capSets:3},
+  {key:'intermedio', title:'Intermedio', desc:'Full body con más volumen y algo de peso libre, 5-6 ejercicios.', matches:(l)=>l.includes('Intermedio'), count:6, capSets:4},
+  {key:'experto', title:'Experto', desc:'Mayor volumen e intensidad, incluye ejercicios avanzados, 7 ejercicios.', matches:(l)=>l.includes('Avanzado')||l.includes('Intermedio'), count:7, capSets:null},
+];
+function generateLevelRoutine(tierKey){
+  const tier = LEVEL_TIERS.find(t=>t.key===tierKey);
+  const groupsOrder = ['tren-superior','espalda','tren-inferior','abdomen'];
+  let pool = allExercises().filter(e=> tier.matches(e.level));
+  if(pool.length < tier.count) pool = allExercises().slice(); // respaldo si faltan suficientes
+  // intenta cubrir variedad de grupos antes de completar al azar
+  let picked = [];
+  groupsOrder.forEach(g=>{
+    if(picked.length>=tier.count) return;
+    const candidates = shuffle(pool.filter(e=>e.group===g && !picked.includes(e)));
+    if(candidates[0]) picked.push(candidates[0]);
+  });
+  const rest = shuffle(pool.filter(e=>!picked.includes(e)));
+  while(picked.length<tier.count && rest.length){ picked.push(rest.shift()); }
+  return { name:'Nivel '+tier.title, exercises: picked.map(e=>e.id) };
+}
+
+function generateSportRoutine(sportKey){
+  const sportPool = allExercises().filter(e=> e.sports && e.sports.includes(sportKey));
+  const generalStrength = allExercises().filter(e=> !e.sports && ['tren-superior','tren-inferior','espalda'].includes(e.group));
+  const picked = shuffle(sportPool).slice(0,5).concat(shuffle(generalStrength).slice(0,2));
+  const label = SPORTS.find(s=>s.key===sportKey);
+  return { name:'Entrenamiento para '+(label?label.label:sportKey), exercises: picked.map(e=>e.id) };
+}
+
+function generateComebackRoutine(){
+  const groupsOrder = ['tren-superior','tren-inferior','espalda','abdomen'];
+  let picked = [];
+  groupsOrder.forEach(g=>{
+    const candidates = shuffle(byGroup(g).filter(e=>!e.isTime && e.level!=='Avanzado'));
+    if(candidates[0]) picked.push(candidates[0]);
+  });
+  // 2 series suaves para cada ejercicio, sin importar el default del ejercicio
+  const exercises = picked.map(e=> ({ id:e.id, setsCount:2, repsTarget:effReps(e) }));
+  return { name:'Reincorporación suave', exercises };
+}
+
+/* ============ REGISTRO DE CARRERA (RUNNING) ============ */
+async function logCardioSession(distanceKm, durationMin, note){
+  const pace = distanceKm>0 ? (durationMin/distanceKm) : 0;
+  const entry = { date:new Date().toISOString(), distanceKm, durationMin, paceMinKm: Math.round(pace*100)/100, note: note||'' };
+  appData.cardioLog.unshift(entry);
+  if(appData.cardioLog.length>300) appData.cardioLog = appData.cardioLog.slice(0,300);
+  const paceStr = pace>0 ? `${Math.floor(pace)}:${String(Math.round((pace%1)*60)).padStart(2,'0')} min/km` : '';
+  appData.history.unshift({
+    id:'h'+Date.now(), name:`Carrera · ${distanceKm} km`, date: entry.date,
+    note: note || (paceStr ? `Ritmo: ${paceStr}` : ''), exercises: []
+  });
+  if(appData.history.length>200) appData.history = appData.history.slice(0,200);
+  await saveData();
+  updateLeaderboard(); updateMonthlyChallenge(); postActivity(`Carrera de ${distanceKm} km`, 1);
+}
+/* ============ REGISTRO DE WOD (CROSSFIT) ============ */
+async function logWodSession(type, description, timeCapMin, result, note){
+  const entry = { date:new Date().toISOString(), type, description, timeCapMin, result, note: note||'' };
+  appData.wodLog.unshift(entry);
+  if(appData.wodLog.length>300) appData.wodLog = appData.wodLog.slice(0,300);
+  appData.history.unshift({
+    id:'h'+Date.now(), name:`WOD (${type})`, date: entry.date,
+    note: `${description} — Resultado: ${result}${note?' · '+note:''}`, exercises: []
+  });
+  if(appData.history.length>200) appData.history = appData.history.slice(0,200);
+  await saveData();
+  updateLeaderboard(); updateMonthlyChallenge(); postActivity(`WOD ${type}`, 1);
+}
+
 function getProgressLog(exId){ return (appData.progress[exId] && appData.progress[exId].log) || []; }
 function pushProgress(exId, entry){
   if(!appData.progress[exId]) appData.progress[exId] = {log:[]};
@@ -1094,12 +1588,112 @@ function fmtLast(exId, isTime){
 function prForExercise(exId){
   const log = getProgressLog(exId);
   if(log.length===0) return null;
-  const hasWeight = log.some(e=>Number(e.weight)>0);
+  const ex = findEx(exId);
+  const hasWeight = log.some(e=>Number(e.weight)>0 && e.unit!=='cm');
   if(hasWeight){
     return log.reduce((best,e)=> Number(e.weight)>Number(best.weight)?e:best);
   }
+  if(ex && ex.betterIsLower){
+    return log.reduce((best,e)=> Number(e.reps)<Number(best.reps)?e:best);
+  }
   return log.reduce((best,e)=> Number(e.reps)>Number(best.reps)?e:best);
 }
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = theme==='light' ? '☀️' : '🌙';
+}
+document.getElementById('themeBtn').onclick = async ()=>{
+  const current = appData.theme === 'light' ? 'dark' : 'light';
+  appData.theme = current;
+  applyTheme(current);
+  await saveData();
+};
+
+function isoWeekKey(date){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = (d.getUTCDay()+6)%7; // lunes=0
+  d.setUTCDate(d.getUTCDate()-day);
+  return d.toISOString().slice(0,10);
+}
+function consecutiveTrainingWeeks(){
+  const weeksTrained = new Set(appData.history.map(h=>isoWeekKey(new Date(h.date))));
+  let count = 0;
+  let cursor = new Date();
+  while(true){
+    const key = isoWeekKey(cursor);
+    if(weeksTrained.has(key)){ count++; cursor.setDate(cursor.getDate()-7); }
+    else break;
+  }
+  return count;
+}
+function activePause(){
+  if(!appData.pause) return null;
+  if(appData.pause.endDate && new Date(appData.pause.endDate) < new Date()) return null;
+  return appData.pause;
+}
+function checkStreakReminder(){
+  const bar = document.getElementById('streakReminderBar');
+  const textEl = document.getElementById('streakReminderText');
+  const pause = activePause();
+
+  if(pause){
+    bar.style.borderColor = 'var(--tag-back)';
+    textEl.textContent = `⏸️ En pausa por: ${pause.reason}. Tu racha no se ve afectada mientras estés en pausa.`;
+    bar.style.display = 'flex';
+    document.getElementById('streakReminderClose').onclick = ()=>{ bar.style.display = 'none'; };
+    return;
+  }
+
+  if(appData.history.length>0){
+    const lastDate = new Date(appData.history[0].date);
+    const days = Math.floor((Date.now()-lastDate)/(1000*60*60*24));
+    if(days>=3){
+      bar.style.borderColor = 'var(--tag-lower)';
+      textEl.textContent = `Han pasado ${days} días desde tu última rutina. ¿Retomamos hoy?`;
+      bar.style.display = 'flex';
+      document.getElementById('streakReminderClose').onclick = ()=>{ bar.style.display = 'none'; };
+      return;
+    }
+    // sugerencia de semana de descarga si no aplica el recordatorio de racha
+    const weeks = consecutiveTrainingWeeks();
+    const lastDismiss = appData.lastDeloadDismiss ? new Date(appData.lastDeloadDismiss) : null;
+    const dismissedRecently = lastDismiss && (Date.now()-lastDismiss.getTime()) < 7*24*60*60*1000;
+    if(weeks>=5 && !dismissedRecently){
+      bar.style.borderColor = 'var(--tag-back)';
+      textEl.textContent = `Llevas ${weeks} semanas seguidas entrenando. Considera una semana de descarga: baja el peso ~40% o reduce las series.`;
+      bar.style.display = 'flex';
+      document.getElementById('streakReminderClose').onclick = async ()=>{
+        bar.style.display = 'none';
+        appData.lastDeloadDismiss = new Date().toISOString();
+        await saveData();
+      };
+      return;
+    }
+  }
+}
+
+function setVolume(s){
+  if(s.unit==='cm') return 0; // altura de salto no es carga, no se suma al volumen
+  const w = Number(s.weight)||0;
+  if(w<=0) return 0; // ejercicios de peso corporal no se pueden sumar de forma comparable
+  const kg = s.unit==='lb' ? w*0.453592 : w;
+  return kg * (Number(s.reps)||0);
+}
+function volumeInRange(daysAgoStart, daysAgoEnd){
+  const now = Date.now();
+  const startMs = now - daysAgoStart*24*60*60*1000;
+  const endMs = now - daysAgoEnd*24*60*60*1000;
+  let total = 0;
+  appData.history.forEach(h=>{
+    const t = new Date(h.date).getTime();
+    if(t>=startMs && t<endMs){
+      h.exercises.forEach(ex=> ex.sets.forEach(s=>{ total += setVolume(s); }));
+    }
+  });
+  return Math.round(total);
+}
+
 function computeStreak(history){
   if(history.length===0) return 0;
   let streak=1;
@@ -1120,17 +1714,66 @@ async function updateLeaderboard(){
       name,
       streak: computeStreak(appData.history),
       totalSessions: appData.history.length,
+      avatar: (p && p.avatar) || null,
       avatarColor: (p && p.avatarColor) || '#7fd858',
       updatedAt: new Date().toISOString()
     });
   }catch(e){ console.error('Error actualizando leaderboard', e); }
 }
+function bestJumpHeightCm(){
+  let best = 0;
+  allExercises().filter(e=>e.metricType==='altura').forEach(ex=>{
+    const log = getProgressLog(ex.id);
+    log.forEach(entry=>{ if(entry.unit==='cm' && Number(entry.weight)>best) best = Number(entry.weight); });
+  });
+  return best;
+}
+function bestTimeMetric(exIds){
+  let best = null;
+  exIds.forEach(exId=>{
+    const log = getProgressLog(exId);
+    log.forEach(entry=>{
+      const val = Number(entry.reps);
+      if(val>0 && (best===null || val<best)) best = val;
+    });
+  });
+  return best;
+}
+async function updateSportRecord(){
+  if(!currentUser) return;
+  const p = appData.profile;
+  const sport = p && p.deporte;
+  if(!sport || sport==='ninguno') return;
+  try{
+    const name = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
+    const bestSprintSec = bestTimeMetric(['sprint-20m-crono']);
+    const bestAgilitySec = bestTimeMetric(['escalera-agilidad','cambios-direccion']);
+    await db.collection('sportRecords').doc(currentUser.uid).set({
+      name, sport,
+      bestJumpCm: bestJumpHeightCm(),
+      bestSprintSec: bestSprintSec || 0,
+      bestAgilitySec: bestAgilitySec || 0,
+      avatar: (p && p.avatar) || null, updatedAt: new Date().toISOString()
+    });
+  }catch(e){ console.error('Error actualizando ranking deportivo', e); }
+}
+function myGroupUids(){
+  const uids = [currentUser.uid, ...(appData.partners||[])];
+  return [...new Set(uids)].slice(0,20);
+}
+async function fetchDocsForGroup(collectionName){
+  const uids = myGroupUids();
+  const results = await Promise.all(uids.map(uid=>
+    db.collection(collectionName).doc(uid).get().then(d=> d.exists ? {id:uid, ...d.data()} : null).catch(()=>null)
+  ));
+  return results.filter(r=>r!==null);
+}
 async function fetchLeaderboard(){
   try{
-    const snap = await db.collection('leaderboard').orderBy('streak','desc').limit(15).get();
-    state.progreso.leaderboard = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    const docs = await fetchDocsForGroup('leaderboard');
+    state.progreso.leaderboard = docs.sort((a,b)=> (b.streak||0)-(a.streak||0));
   }catch(e){
-    console.error('Error cargando leaderboard', e);
+    console.error('Error cargando ranking de grupo', e);
     state.progreso.leaderboard = [];
   }
   if(state.tab==='progreso'){
@@ -1138,6 +1781,28 @@ async function fetchLeaderboard(){
     if(c) renderLeaderboardSection();
   }
 }
+function renderVolumeCard(){
+  const box = document.getElementById('volumeCard');
+  if(!box) return;
+  const thisWeek = volumeInRange(7,0);
+  const lastWeek = volumeInRange(14,7);
+  let diffText = '';
+  if(lastWeek>0){
+    const pct = Math.round(((thisWeek-lastWeek)/lastWeek)*100);
+    diffText = pct>=0 ? `▲ ${pct}% vs semana pasada` : `▼ ${Math.abs(pct)}% vs semana pasada`;
+  } else if(thisWeek>0){
+    diffText = 'Semana pasada sin registros';
+  }
+  box.innerHTML = `
+    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Volumen total (peso × reps) esta semana</div>
+    <div style="display:flex;align-items:baseline;gap:10px;">
+      <div style="font-size:24px;font-weight:800;color:var(--accent);">${thisWeek.toLocaleString('es-CL')} kg</div>
+      ${diffText ? `<div style="font-size:12px;color:${thisWeek>=lastWeek?'var(--accent)':'var(--danger)'};font-weight:700;">${diffText}</div>` : ''}
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Semana pasada: ${lastWeek.toLocaleString('es-CL')} kg · No incluye ejercicios de peso corporal.</div>
+  `;
+}
+
 function renderLeaderboardSection(){
   const box = document.getElementById('leaderboardBox');
   if(!box) return;
@@ -1146,8 +1811,8 @@ function renderLeaderboardSection(){
     fetchLeaderboard();
     return;
   }
-  if(state.progreso.leaderboard.length===0){
-    box.innerHTML = `<div class="empty-cta">Termina una rutina para aparecer en el ranking.</div>`;
+  if(state.progreso.leaderboard.length<=1){
+    box.innerHTML = `<div class="empty-cta">Agrega compañeros de entrenamiento arriba para ver un ranking entre ustedes.</div>`;
     return;
   }
   const medals = ['🥇','🥈','🥉'];
@@ -1156,8 +1821,9 @@ function renderLeaderboardSection(){
     const row = document.createElement('div'); row.className='pr-row';
     const isMe = currentUser && u.id===currentUser.uid;
     row.style.borderColor = isMe ? 'var(--accent-dim)' : '';
-    row.innerHTML = `<span class="pr-name">${medals[i]||('#'+(i+1))} ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">🔥 ${u.streak}</span>`;
+    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="lb-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">🔥 ${u.streak}</span>`;
     box.appendChild(row);
+    setAvatarElement(row.querySelector(`#lb-av-${u.id}`), u, 24, (u.name||'U')[0].toUpperCase());
   });
 }
 
@@ -1170,17 +1836,17 @@ async function updateMonthlyChallenge(){
     const p = appData.profile;
     const name = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
     await db.collection('monthlyChallenge').doc(currentUser.uid).set({
-      name, monthKey, count, avatarColor: (p && p.avatarColor) || '#7fd858', updatedAt: new Date().toISOString()
+      name, monthKey, count, avatar: (p && p.avatar) || null, avatarColor: (p && p.avatarColor) || '#7fd858', updatedAt: new Date().toISOString()
     });
   }catch(e){ console.error('Error actualizando reto mensual', e); }
 }
 async function fetchMonthlyChallenge(){
   try{
-    const snap = await db.collection('monthlyChallenge').orderBy('count','desc').limit(20).get();
     const monthKey = currentMonthKey();
-    state.progreso.monthly = snap.docs.map(d=>({id:d.id, ...d.data()})).filter(u=>u.monthKey===monthKey);
+    const docs = await fetchDocsForGroup('monthlyChallenge');
+    state.progreso.monthly = docs.filter(u=>u.monthKey===monthKey).sort((a,b)=>(b.count||0)-(a.count||0));
   }catch(e){
-    console.error('Error cargando reto mensual', e);
+    console.error('Error cargando reto del mes de grupo', e);
     state.progreso.monthly = [];
   }
   if(state.tab==='progreso'){
@@ -1196,8 +1862,8 @@ function renderMonthlySection(){
     fetchMonthlyChallenge();
     return;
   }
-  if(state.progreso.monthly.length===0){
-    box.innerHTML = `<div class="empty-cta">Nadie ha entrenado este mes todavía. ¡Sé el primero!</div>`;
+  if(state.progreso.monthly.length<=1){
+    box.innerHTML = `<div class="empty-cta">Agrega compañeros para competir por quién entrena más este mes.</div>`;
     return;
   }
   const medals = ['🥇','🥈','🥉'];
@@ -1206,8 +1872,136 @@ function renderMonthlySection(){
     const row = document.createElement('div'); row.className='pr-row';
     const isMe = currentUser && u.id===currentUser.uid;
     row.style.borderColor = isMe ? 'var(--accent-dim)' : '';
-    row.innerHTML = `<span class="pr-name">${medals[i]||('#'+(i+1))} ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u.count} rutinas</span>`;
+    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="mc-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u.count} rutinas</span>`;
     box.appendChild(row);
+    setAvatarElement(row.querySelector(`#mc-av-${u.id}`), u, 24, (u.name||'U')[0].toUpperCase());
+  });
+}
+
+async function fetchSportRank(){
+  const sport = appData.profile && appData.profile.deporte;
+  if(!sport || sport==='ninguno'){ state.progreso.sportRank = []; return; }
+  try{
+    const docs = await fetchDocsForGroup('sportRecords');
+    state.progreso.sportRank = docs.filter(u=>u.sport===sport);
+  }catch(e){
+    console.error('Error cargando ranking deportivo de grupo', e);
+    state.progreso.sportRank = [];
+  }
+  if(state.tab==='progreso'){
+    const c = document.getElementById('content');
+    if(c) renderSportRankSection();
+  }
+}
+const SPORT_METRICS = {
+  basquetbol: { key:'bestJumpCm', unit:'cm', lowerIsBetter:false, label:'salto' },
+  futbol: { key:'bestSprintSec', unit:'seg', lowerIsBetter:true, label:'sprint' },
+  tenis: { key:'bestAgilitySec', unit:'seg', lowerIsBetter:true, label:'agilidad' },
+};
+function renderSportRankSection(){
+  const box = document.getElementById('sportRankBox');
+  if(!box) return;
+  if(!state.progreso.sportRank){
+    box.innerHTML = `<div class="empty" style="padding:16px;">Cargando ranking...</div>`;
+    fetchSportRank();
+    return;
+  }
+  const sport = appData.profile.deporte;
+  const metric = SPORT_METRICS[sport];
+  if(!metric){
+    box.innerHTML = `<div class="empty-cta">Todavía no hay una métrica de rendimiento específica para este deporte, pero puedes seguir viendo tu ranking de constancia arriba.</div>`;
+    return;
+  }
+  let withMetric = state.progreso.sportRank.filter(u=>Number(u[metric.key])>0);
+  withMetric.sort((a,b)=> metric.lowerIsBetter ? a[metric.key]-b[metric.key] : b[metric.key]-a[metric.key]);
+  if(withMetric.length===0){
+    box.innerHTML = `<div class="empty-cta">Registra un ejercicio de ${metric.label} y agrega compañeros para ver este ranking.</div>`;
+    return;
+  }
+  const medals = ['🥇','🥈','🥉'];
+  box.innerHTML = '';
+  withMetric.forEach((u,i)=>{
+    const row = document.createElement('div'); row.className='pr-row';
+    const isMe = currentUser && u.id===currentUser.uid;
+    row.style.borderColor = isMe ? 'var(--accent-dim)' : '';
+    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="sr-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u[metric.key]} ${metric.unit}</span>`;
+    box.appendChild(row);
+    setAvatarElement(row.querySelector(`#sr-av-${u.id}`), u, 24, (u.name||'U')[0].toUpperCase());
+  });
+}
+
+/* ============ COMPAÑERO DE ENTRENAMIENTO ============ */
+function myInviteCode(){
+  return currentUser ? currentUser.uid.slice(0,8).toUpperCase() : '';
+}
+async function addPartnerByCode(code){
+  code = code.trim().toUpperCase();
+  if(!code) return {ok:false, msg:'Ingresa un código.'};
+  if(code === myInviteCode()) return {ok:false, msg:'Ese es tu propio código 😉'};
+  try{
+    const snap = await db.collection('members').limit(200).get();
+    const match = snap.docs.find(d=> d.id.slice(0,8).toUpperCase() === code);
+    if(!match) return {ok:false, msg:'No se encontró a nadie con ese código.'};
+    if(!appData.partners.includes(match.id)){
+      appData.partners.push(match.id);
+      await saveData();
+    }
+    return {ok:true};
+  }catch(e){
+    console.error(e);
+    return {ok:false, msg:'Error de conexión, intenta de nuevo.'};
+  }
+}
+async function removePartner(uid){
+  appData.partners = appData.partners.filter(id=>id!==uid);
+  await saveData();
+  renderPartnersSection();
+  setupPartnerNotifications();
+}
+async function fetchPartnerCard(uid){
+  try{
+    const [memberDoc, lbDoc, monthDoc] = await Promise.all([
+      db.collection('members').doc(uid).get(),
+      db.collection('leaderboard').doc(uid).get(),
+      db.collection('monthlyChallenge').doc(uid).get()
+    ]);
+    const member = memberDoc.exists ? memberDoc.data() : {name:'Usuario'};
+    const lb = lbDoc.exists ? lbDoc.data() : {streak:0, totalSessions:0};
+    const month = monthDoc.exists ? monthDoc.data() : {count:0, monthKey:''};
+    const isCurrentMonth = month.monthKey === currentMonthKey();
+    return { uid, name: member.name, avatar: member.avatar, streak: lb.streak||0, totalSessions: lb.totalSessions||0, monthCount: isCurrentMonth ? (month.count||0) : 0 };
+  }catch(e){ console.error(e); return { uid, name:'Usuario', streak:0, totalSessions:0, monthCount:0 }; }
+}
+async function renderPartnersSection(){
+  const box = document.getElementById('partnersBox');
+  if(!box) return;
+  if(appData.partners.length===0){
+    box.innerHTML = `<div class="empty-cta">Aún no agregas compañeros. Comparte tu código con un amigo o pareja, o ingresa el suyo abajo.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="empty" style="padding:10px;">Cargando compañeros...</div>`;
+  const cards = await Promise.all(appData.partners.map(uid=>fetchPartnerCard(uid)));
+  box.innerHTML = '';
+  const myStreak = computeStreak(appData.history);
+  const myMonthCount = appData.history.filter(h=>h.date.slice(0,7)===currentMonthKey()).length;
+  cards.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.style.marginBottom = '10px';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div class="user-avatar" id="partner-av-${p.uid}" style="width:36px;height:36px;"></div>
+        <div style="flex:1;font-size:13.5px;font-weight:700;">${p.name}</div>
+        <button class="btn-danger" data-remove="${p.uid}" style="border:none;background:none;cursor:pointer;font-size:12px;">Quitar</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+        <div><div style="font-size:11px;color:var(--text-dim);">Racha</div><div style="font-size:13px;font-weight:700;">🔥${p.streak} <span style="color:var(--text-dim);font-weight:400;">vs</span> ${myStreak}</div></div>
+        <div><div style="font-size:11px;color:var(--text-dim);">Total</div><div style="font-size:13px;font-weight:700;">${p.totalSessions} <span style="color:var(--text-dim);font-weight:400;">vs</span> ${appData.history.length}</div></div>
+        <div><div style="font-size:11px;color:var(--text-dim);">Este mes</div><div style="font-size:13px;font-weight:700;">${p.monthCount} <span style="color:var(--text-dim);font-weight:400;">vs</span> ${myMonthCount}</div></div>
+      </div>`;
+    card.querySelector(`[data-remove="${p.uid}"]`).onclick = ()=>removePartner(p.uid);
+    box.appendChild(card);
+    setAvatarElement(document.getElementById(`partner-av-${p.uid}`), p, 36, (p.name||'U')[0].toUpperCase());
   });
 }
 
@@ -1408,11 +2202,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
 function renderTabs(){
   const tabsEl = document.getElementById('tabs');
   const tabs = [
+    {key:"perfil", label:"Perfil"},
     {key:"pool", label:"Pool"},
     {key:"rutinas", label:"Rutinas"},
     {key:"historial", label:"Historial"},
     {key:"progreso", label:"Progreso"},
-    {key:"nutricion", label:"Nutrición"},
+    {key:"ideas", label:"Ideas"},
   ];
   tabsEl.innerHTML = "";
   tabs.forEach(t=>{
@@ -1430,7 +2225,8 @@ function render(){
   const sub = document.getElementById('headerSub');
   if(!dataLoaded){ c.innerHTML = `<div class="empty">Cargando datos...</div>`; return; }
 
-  if(state.tab==='pool'){ sub.textContent = "Explora la técnica de cada ejercicio."; renderPool(c); }
+  if(state.tab==='perfil'){ sub.textContent = "Tu información, avatar y preferencias."; renderPerfil(c); }
+  else if(state.tab==='pool'){ sub.textContent = "Explora la técnica de cada ejercicio."; renderPool(c); }
   else if(state.tab==='rutinas'){
     sub.textContent = "Rutinas recomendadas o crea la tuya.";
     if(state.rutinas.view==='workout') renderWorkout(c);
@@ -1439,7 +2235,7 @@ function render(){
   }
   else if(state.tab==='historial'){ sub.textContent = "Tus rutinas completadas."; renderHistorial(c); }
   else if(state.tab==='progreso'){ sub.textContent = "Récords, racha, gráficos y peso corporal."; renderProgreso(c); }
-  else if(state.tab==='nutricion'){ sub.textContent = "Registro simple de comidas y calorías."; renderNutricion(c); }
+  else if(state.tab==='ideas'){ sub.textContent = "Propón y vota mejoras para la app."; renderIdeas(c); }
 }
 
 /* ============ POOL TAB ============ */
@@ -1489,15 +2285,111 @@ function renderPoolGrid(){
         ${prBadge?`<span class="badge-pr">🏆 ${prBadge}</span>`:''}
       </div>
       <div class="detail">
-        <div class="sets-pill">📋 ${item.setsCount} series x ${item.repsTarget}${item.isTime?' seg':' reps'}</div>
+        <div class="sets-pill">📋 ${effSets(item)} series x ${effReps(item)}${item.isTime?' seg':' reps'}${appData.exerciseOverrides && appData.exerciseOverrides[item.id] ? ' (personalizado)' : ''}</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin:-6px 0 12px;" onclick="event.stopPropagation()">
+          <div style="flex:1;"><label class="login-field-label">Series</label><input class="set-input" type="number" min="1" max="10" id="ov-sets-${item.id}" value="${effSets(item)}"></div>
+          <div style="flex:1;"><label class="login-field-label">Reps</label><input class="set-input" type="text" id="ov-reps-${item.id}" value="${effReps(item)}"></div>
+          <button class="btn btn-ghost btn-sm" id="ov-save-${item.id}">Guardar</button>
+        </div>
         <h4>Posición inicial</h4><p>${item.setup}</p>
         <h4>Ejecución</h4><ul>${item.steps.map(s=>`<li>${s}</li>`).join('')}</ul>
         <h4>Error común a evitar</h4><p class="last">${item.errors}</p>
+        <h4>Si no tienes esta máquina/equipo, prueba</h4>
+        <ul>${getVariants(item.id,4).map(v=>`<li>${v.name}</li>`).join('')}</ul>
         <a href="${youtubeSearchUrl(item.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn btn-ghost btn-sm" style="display:inline-block;text-decoration:none;margin-top:6px;">▶️ Ver videos de referencia</a>
       </div>`;
     card.onclick = ()=>{ st.open = (st.open===item.id)?null:item.id; renderPoolGrid(); };
+    const ovSaveBtn = card.querySelector(`#ov-save-${item.id}`);
+    if(ovSaveBtn){
+      ovSaveBtn.onclick = async (e)=>{
+        e.stopPropagation();
+        const setsVal = Number(card.querySelector(`#ov-sets-${item.id}`).value) || item.setsCount;
+        const repsVal = card.querySelector(`#ov-reps-${item.id}`).value.trim() || item.repsTarget;
+        await setExerciseOverride(item.id, setsVal, repsVal);
+        renderPoolGrid();
+      };
+    }
     grid.appendChild(card);
   });
+}
+
+function openCompleteProfileModal(){
+  const existing = appData.profile;
+  const draft = existing && existing.nombre
+    ? { ...existing, avatar: { ...(existing.avatar || selectedAvatar) } }
+    : { nombre:'', apellido:'', edad:'', altura:'', peso:'', objetivo:'bajar-grasa', nivel:'principiante', deporte:'ninguno', avatar: { ...selectedAvatar } };
+  const isEdit = !!(existing && existing.nombre);
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">${isEdit ? 'Editar mis datos' : 'Completa tu perfil'}</div>
+      <p class="guide-sub">Estos datos aparecen en Miembros y Compañeros.</p>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label class="login-field-label">Nombre</label><input class="name-input" id="cpNombre" value="${draft.nombre||''}" style="margin-bottom:14px;"></div>
+        <div style="flex:1;"><label class="login-field-label">Apellido</label><input class="name-input" id="cpApellido" value="${draft.apellido||''}" style="margin-bottom:14px;"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label class="login-field-label">Edad</label><input class="name-input" id="cpEdad" type="number" value="${draft.edad||''}" style="margin-bottom:14px;"></div>
+        <div style="flex:1;"><label class="login-field-label">Altura (cm)</label><input class="name-input" id="cpAltura" type="number" value="${draft.altura||''}" style="margin-bottom:14px;"></div>
+        <div style="flex:1;"><label class="login-field-label">Peso (kg)</label><input class="name-input" id="cpPeso" type="number" placeholder="${isEdit?'nuevo registro':''}" style="margin-bottom:14px;"></div>
+      </div>
+      <label class="login-field-label">Objetivo principal</label>
+      <select class="name-input" id="cpObjetivo" style="margin-bottom:14px;">
+        <option value="bajar-grasa" ${draft.objetivo==='bajar-grasa'?'selected':''}>Bajar de grasa</option>
+        <option value="ganar-musculo" ${draft.objetivo==='ganar-musculo'?'selected':''}>Ganar músculo</option>
+        <option value="mantener" ${draft.objetivo==='mantener'?'selected':''}>Mantenerme / salud general</option>
+      </select>
+      <label class="login-field-label">Nivel de experiencia</label>
+      <select class="name-input" id="cpNivel" style="margin-bottom:14px;">
+        <option value="principiante" ${draft.nivel==='principiante'?'selected':''}>Principiante</option>
+        <option value="intermedio" ${draft.nivel==='intermedio'?'selected':''}>Intermedio</option>
+        <option value="avanzado" ${draft.nivel==='avanzado'?'selected':''}>Avanzado</option>
+      </select>
+      <label class="login-field-label">Deporte favorito (opcional)</label>
+      <select class="name-input" id="cpDeporte" style="margin-bottom:14px;">
+        <option value="ninguno" ${(!draft.deporte||draft.deporte==='ninguno')?'selected':''}>Ninguno en particular</option>
+        <option value="tenis" ${draft.deporte==='tenis'?'selected':''}>Tenis</option>
+        <option value="futbol" ${draft.deporte==='futbol'?'selected':''}>Fútbol</option>
+        <option value="basquetbol" ${draft.deporte==='basquetbol'?'selected':''}>Básquetbol</option>
+        <option value="boxeo" ${draft.deporte==='boxeo'?'selected':''}>Boxeo</option>
+        <option value="running" ${draft.deporte==='running'?'selected':''}>Running</option>
+        <option value="crossfit" ${draft.deporte==='crossfit'?'selected':''}>Crossfit</option>
+      </select>
+      <div id="cpAvatarBuilder"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-ghost" id="cpCancelBtn" style="flex:1;">Cancelar</button>
+        <button class="btn btn-primary" id="cpSaveBtn" style="flex:2;">Guardar perfil</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  renderAvatarBuilder('cpAvatarBuilder', draft.avatar, ()=>{});
+  document.getElementById('cpCancelBtn').onclick = ()=> modal.remove();
+  document.getElementById('cpSaveBtn').onclick = async ()=>{
+    const nombre = document.getElementById('cpNombre').value.trim();
+    const apellido = document.getElementById('cpApellido').value.trim();
+    if(!nombre || !apellido){ alert('Completa al menos tu nombre y apellido.'); return; }
+    appData.profile = {
+      nombre, apellido,
+      edad: Number(document.getElementById('cpEdad').value)||null,
+      altura: Number(document.getElementById('cpAltura').value)||null,
+      objetivo: document.getElementById('cpObjetivo').value,
+      nivel: document.getElementById('cpNivel').value,
+      deporte: document.getElementById('cpDeporte').value,
+      avatar: draft.avatar
+    };
+    const peso = Number(document.getElementById('cpPeso').value);
+    if(peso) appData.bodyWeight.log.push({date:new Date().toISOString(), weight:peso});
+    await saveData();
+    try{
+      await db.collection('members').doc(currentUser.uid).set({
+        name: (nombre+' '+apellido).trim(), avatar: draft.avatar, joinedAt: new Date().toISOString()
+      }, {merge:true});
+    }catch(e){ console.error('Error creando/actualizando miembro', e); }
+    setAvatarElement(document.getElementById('userAvatar'), appData.profile, 32, (nombre[0]+apellido[0]).toUpperCase());
+    modal.remove();
+    render();
+  };
 }
 
 function openAvatarEditModal(){
@@ -1608,18 +2500,108 @@ function suggestUntrainedGroup(){
   return { group: worstGroup, days: worstDays };
 }
 
+function getNeglectedExercises(daysThreshold, limit){
+  daysThreshold = daysThreshold || 21;
+  limit = limit || 3;
+  const now = Date.now();
+  const results = [];
+  Object.keys(appData.progress||{}).forEach(exId=>{
+    const log = appData.progress[exId].log;
+    if(!log || log.length===0) return;
+    const ex = findEx(exId);
+    if(!ex) return;
+    const lastDate = new Date(log[log.length-1].date).getTime();
+    const days = Math.floor((now-lastDate)/(1000*60*60*24));
+    if(days>=daysThreshold) results.push({ ex, days });
+  });
+  results.sort((a,b)=>b.days-a.days);
+  return results.slice(0,limit);
+}
+
+function openBuilderForEdit(routine){
+  const st = state.rutinas;
+  st.builderName = routine.name;
+  st.editingId = routine.id;
+  st.builderSelected = flattenRoutineExercises(routine.exercises);
+  st.builderGroups = routine.exercises.filter(isGroupItem).map(item=>({ ids: item.group.slice() }));
+  st.groupingTemp = [];
+  st.builderCustomTargets = {};
+  routine.exercises.filter(isCustomTargetItem).forEach(item=>{
+    st.builderCustomTargets[item.id] = { setsCount: item.setsCount, repsTarget: item.repsTarget };
+  });
+  st.view = 'builder';
+  render();
+}
+
 function renderRutinasList(c){
   const suggestion = suggestUntrainedGroup();
   const suggestionText = suggestion.days>=999
     ? `Aún no registras entrenamientos de ${LABELS[suggestion.group]}. ¿Empezamos hoy?`
     : `Hace ${suggestion.days} día${suggestion.days===1?'':'s'} no entrenas ${LABELS[suggestion.group]}. ¿Por qué no hoy?`;
+  const neglected = getNeglectedExercises(21,3);
 
   c.innerHTML = `
+    ${appData.pendingComeback ? `
+    <div class="chart-card" style="margin-bottom:10px;background:linear-gradient(135deg, var(--panel), rgba(224,164,88,0.12));border-color:var(--tag-lower);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">🌱 Bienvenido de vuelta</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">Te sugerimos una rutina suave (2 series por ejercicio) para retomar de a poco.</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" id="startComebackBtn" style="flex:1;">Iniciar reincorporación suave</button>
+        <button class="btn btn-ghost btn-sm" id="skipComebackBtn">Ya me siento bien</button>
+      </div>
+    </div>` : ''}
+
     <div class="chart-card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:linear-gradient(135deg, var(--panel), var(--accent-soft));">
       <div style="font-size:13px;">💡 ${suggestionText}</div>
       <button class="btn btn-primary btn-sm" id="suggestionBtn" style="white-space:nowrap;">Generar</button>
     </div>
 
+    ${neglected.length>0 ? `
+    <div class="chart-card" style="margin-top:10px;">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;">📌 Ejercicios que llevas tiempo sin entrenar:</div>
+      ${neglected.map(n=>`<div style="font-size:12.5px;display:flex;justify-content:space-between;padding:4px 0;"><span>${n.ex.name}</span><span style="color:var(--tag-lower);font-weight:600;">hace ${n.days} días</span></div>`).join('')}
+    </div>` : ''}
+
+    <input class="searchbox" id="routineSearch" placeholder="Buscar rutina (mías o de la comunidad)..." value="${(state.rutinas.routineSearch||'').replace(/"/g,'')}" style="margin:12px 0;">
+
+    ${(appData.profile && appData.profile.deporte && appData.profile.deporte!=='ninguno') ? `
+    <div class="section-title">Para tu deporte <span class="n">(${SPORTS.find(s=>s.key===appData.profile.deporte).label})</span></div>
+    <div class="rgrid" id="sportGrid"></div>` : ''}
+
+    ${appData.profile && appData.profile.deporte==='running' ? `
+    <div class="section-title">Registrar carrera</div>
+    <div class="chart-card">
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;"><label class="login-field-label">Distancia (km)</label><input class="set-input" type="number" step="0.1" min="0" id="cardioDist" placeholder="5.0"></div>
+        <div style="flex:1;"><label class="login-field-label">Tiempo (min)</label><input class="set-input" type="number" step="0.1" min="0" id="cardioDur" placeholder="30"></div>
+      </div>
+      <div id="cardioPacePreview" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;"></div>
+      <input class="name-input" id="cardioNote" placeholder="Nota (opcional): terreno, sensación..." style="margin-bottom:10px;">
+      <button class="btn btn-primary btn-block" id="saveCardioBtn">Guardar carrera</button>
+      <div id="cardioRecent" style="margin-top:12px;"></div>
+    </div>` : ''}
+
+    ${appData.profile && appData.profile.deporte==='crossfit' ? `
+    <div class="section-title">Registrar WOD</div>
+    <div class="chart-card">
+      <label class="login-field-label">Tipo</label>
+      <select class="name-input" id="wodType" style="margin-bottom:10px;">
+        <option value="AMRAP">AMRAP (rondas en tiempo fijo)</option>
+        <option value="EMOM">EMOM (cada minuto en el minuto)</option>
+        <option value="Por tiempo">Por tiempo (completar lo antes posible)</option>
+      </select>
+      <label class="login-field-label">Descripción del WOD</label>
+      <input class="name-input" id="wodDesc" placeholder="Ej: 10 wall balls, 10 burpees, 10 kb swings" style="margin-bottom:10px;">
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;"><label class="login-field-label">Duración/cap (min)</label><input class="set-input" type="number" min="0" id="wodTimeCap" placeholder="12"></div>
+        <div style="flex:1;"><label class="login-field-label">Resultado</label><input class="set-input" type="text" id="wodResult" placeholder="5 rondas + 12"></div>
+      </div>
+      <input class="name-input" id="wodNote" placeholder="Nota (opcional)" style="margin-bottom:10px;">
+      <button class="btn btn-primary btn-block" id="saveWodBtn">Guardar WOD</button>
+      <div id="wodRecent" style="margin-top:12px;"></div>
+    </div>` : ''}
+
+    <div class="section-title">Rutinas por nivel de experiencia</div><div class="rgrid" id="levelGrid"></div>
     <div class="section-title">Rutinas recomendadas</div><div class="rgrid" id="recoGrid"></div>
     <div class="section-title">Mis rutinas <span class="n">(${appData.customRoutines.length})</span></div>
     <div style="margin-top:8px;"><button class="btn btn-primary btn-block" id="createRoutineBtn">+ Crear mi rutina</button></div>
@@ -1628,14 +2610,116 @@ function renderRutinasList(c){
     <div class="section-title">Rutinas de la comunidad <span class="n">(compartidas por otros usuarios)</span></div>
     <div class="rgrid" id="communityGrid" style="margin-top:12px;"></div>`;
 
+  document.getElementById('routineSearch').oninput = (e)=>{
+    state.rutinas.routineSearch = e.target.value;
+    renderCustomRoutinesGrid();
+    renderCommunityRoutines(c);
+  };
+
+  if(appData.pendingComeback){
+    document.getElementById('startComebackBtn').onclick = async ()=>{
+      const routine = generateComebackRoutine();
+      appData.pendingComeback = false;
+      await saveData();
+      startWorkout(routine.name, routine.exercises);
+    };
+    document.getElementById('skipComebackBtn').onclick = async ()=>{
+      appData.pendingComeback = false;
+      await saveData();
+      renderRutinasList(c);
+    };
+  }
+
+  if(appData.profile && appData.profile.deporte==='running'){
+    const distEl = document.getElementById('cardioDist');
+    const durEl = document.getElementById('cardioDur');
+    const pacePreview = document.getElementById('cardioPacePreview');
+    function updatePacePreview(){
+      const d = Number(distEl.value), t = Number(durEl.value);
+      if(d>0 && t>0){
+        const pace = t/d;
+        pacePreview.textContent = `Ritmo estimado: ${Math.floor(pace)}:${String(Math.round((pace%1)*60)).padStart(2,'0')} min/km`;
+      } else { pacePreview.textContent = ''; }
+    }
+    distEl.oninput = updatePacePreview; durEl.oninput = updatePacePreview;
+    document.getElementById('saveCardioBtn').onclick = async ()=>{
+      const d = Number(distEl.value), t = Number(durEl.value);
+      if(!d || !t){ alert('Ingresa distancia y tiempo válidos.'); return; }
+      const btn = document.getElementById('saveCardioBtn'); btn.disabled=true; btn.textContent='Guardando...';
+      await logCardioSession(d, t, document.getElementById('cardioNote').value.trim());
+      renderRutinasList(c);
+    };
+    const recentBox = document.getElementById('cardioRecent');
+    if(appData.cardioLog.length>0){
+      recentBox.innerHTML = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Últimas carreras:</div>' +
+        appData.cardioLog.slice(0,5).map(r=>`<div class="hist-ex"><span>${new Date(r.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})} · ${r.distanceKm} km</span><span>${r.paceMinKm} min/km</span></div>`).join('');
+    }
+  }
+
+  if(appData.profile && appData.profile.deporte==='crossfit'){
+    document.getElementById('saveWodBtn').onclick = async ()=>{
+      const type = document.getElementById('wodType').value;
+      const desc = document.getElementById('wodDesc').value.trim();
+      const timeCap = Number(document.getElementById('wodTimeCap').value)||0;
+      const result = document.getElementById('wodResult').value.trim();
+      if(!desc || !result){ alert('Completa al menos la descripción y el resultado.'); return; }
+      const btn = document.getElementById('saveWodBtn'); btn.disabled=true; btn.textContent='Guardando...';
+      await logWodSession(type, desc, timeCap, result, document.getElementById('wodNote').value.trim());
+      renderRutinasList(c);
+    };
+    const wodRecentBox = document.getElementById('wodRecent');
+    if(appData.wodLog.length>0){
+      wodRecentBox.innerHTML = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Últimos WODs:</div>' +
+        appData.wodLog.slice(0,5).map(w=>`<div class="hist-ex"><span>${new Date(w.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})} · ${w.type}</span><span>${w.result}</span></div>`).join('');
+    }
+  }
+
   document.getElementById('suggestionBtn').onclick = ()=>{
     const routine = generateRoutine(suggestion.group);
     startWorkout(routine.name, routine.exercises);
   };
 
   document.getElementById('createRoutineBtn').onclick = ()=>{
-    state.rutinas.view='builder'; state.rutinas.builderName=''; state.rutinas.builderSelected=[]; state.rutinas.builderGroups=[]; state.rutinas.groupingTemp=[]; render();
+    state.rutinas.view='builder'; state.rutinas.builderName=''; state.rutinas.builderSelected=[]; state.rutinas.builderGroups=[]; state.rutinas.groupingTemp=[]; state.rutinas.editingId=null; state.rutinas.builderCustomTargets={}; render();
   };
+
+  const sportGrid = document.getElementById('sportGrid');
+  if(sportGrid){
+    const sportKey = appData.profile.deporte;
+    if(!state.rutinas.generatedSport) state.rutinas.generatedSport = generateSportRoutine(sportKey);
+    const routine = state.rutinas.generatedSport;
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.innerHTML = `
+      <div class="rcard-top"><div><p class="rcard-title">${routine.name}</p><p class="rcard-sub">Ejercicios de rendimiento + fuerza base para tu deporte.</p></div></div>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${ex.name}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
+      <div class="rcard-actions">
+        <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+        <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
+      </div>`;
+    card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(routine.name, routine.exercises);
+    card.querySelector('[data-action="regen"]').onclick = ()=>{ state.rutinas.generatedSport = generateSportRoutine(sportKey); renderRutinasList(c); };
+    sportGrid.appendChild(card);
+  }
+
+  const levelGrid = document.getElementById('levelGrid');
+  if(!state.rutinas.generatedLevels) state.rutinas.generatedLevels = {};
+  LEVEL_TIERS.forEach(tier=>{
+    if(!state.rutinas.generatedLevels[tier.key]) state.rutinas.generatedLevels[tier.key] = generateLevelRoutine(tier.key);
+    const routine = state.rutinas.generatedLevels[tier.key];
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.innerHTML = `
+      <div class="rcard-top"><div><p class="rcard-title">${tier.title}</p><p class="rcard-sub">${tier.desc}</p></div></div>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${ex.name}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
+      <div class="rcard-actions">
+        <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+        <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
+      </div>`;
+    card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(routine.name, routine.exercises);
+    card.querySelector('[data-action="regen"]').onclick = ()=>{ state.rutinas.generatedLevels[tier.key]=generateLevelRoutine(tier.key); renderRutinasList(c); };
+    levelGrid.appendChild(card);
+  });
 
   const recoGrid = document.getElementById('recoGrid');
   RECO_TEMPLATES.forEach(tpl=>{
@@ -1645,7 +2729,7 @@ function renderRutinasList(c){
     card.className = 'rcard';
     card.innerHTML = `
       <div class="rcard-top"><div><p class="rcard-title">${tpl.title}</p><p class="rcard-sub">${tpl.desc}</p></div></div>
-      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return `<li><span>${ex.name}</span><span class="ex-sets">${ex.setsCount}x${ex.repsTarget}</span></li>`;}).join('')}</ul>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return `<li><span>${ex.name}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`;}).join('')}</ul>
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
@@ -1655,21 +2739,37 @@ function renderRutinasList(c){
     recoGrid.appendChild(card);
   });
 
+  renderCustomRoutinesGrid();
+  renderCommunityRoutines(c);
+}
+
+function renderCustomRoutinesGrid(){
   const customGrid = document.getElementById('customGrid');
+  if(!customGrid) return;
+  const term = (state.rutinas.routineSearch||'').toLowerCase().trim();
+  const filtered = appData.customRoutines.filter(r=> !term || r.name.toLowerCase().includes(term));
   if(appData.customRoutines.length===0){
     customGrid.innerHTML = `<div class="empty-cta">Todavía no has creado rutinas propias. Usa "Crear mi rutina" para elegir tus ejercicios favoritos del pool.</div>`;
-  } else {
-    appData.customRoutines.forEach(r=>{
+    return;
+  }
+  if(filtered.length===0){
+    customGrid.innerHTML = `<div class="empty-cta">Ninguna de tus rutinas coincide con "${state.rutinas.routineSearch}".</div>`;
+    return;
+  }
+  customGrid.innerHTML = '';
+  filtered.forEach(r=>{
       const card = document.createElement('div'); card.className='rcard';
       card.innerHTML = `
         <div class="rcard-top"><div><p class="rcard-title">${r.name}</p><p class="rcard-sub">${r.exercises.length} ejercicios</p></div></div>
         <ul class="rcard-list">${renderRoutinePreviewList(r.exercises)}</ul>
         <div class="rcard-actions">
           <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+          <button class="btn btn-ghost" data-action="edit">✏️ Editar</button>
           <button class="btn btn-ghost" data-action="share">📤 Compartir</button>
           <button class="btn btn-danger" data-action="del">Eliminar</button>
         </div>`;
       card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(r.name, r.exercises);
+      card.querySelector('[data-action="edit"]').onclick = ()=> openBuilderForEdit(r);
       card.querySelector('[data-action="share"]').onclick = async (e)=>{
         const btn = e.target; btn.disabled = true; btn.textContent = 'Compartiendo...';
         try{
@@ -1677,7 +2777,7 @@ function renderRutinasList(c){
           const authorName = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
           await db.collection('sharedRoutines').add({
             name: r.name, exercises: r.exercises, authorName, authorUid: currentUser.uid,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(), copiesCount: 0, startsCount: 0
           });
           btn.textContent = '✓ Compartida';
           state.rutinas.community = null; // forzar refresco
@@ -1691,18 +2791,15 @@ function renderRutinasList(c){
       };
       card.querySelector('[data-action="del"]').onclick = async ()=>{
         appData.customRoutines = appData.customRoutines.filter(x=>x.id!==r.id);
-        await saveData(); renderRutinasList(c);
+        await saveData(); renderCustomRoutinesGrid();
       };
       customGrid.appendChild(card);
-    });
-  }
-
-  renderCommunityRoutines(c);
+  });
 }
 
 async function fetchCommunityRoutines(){
   try{
-    const snap = await db.collection('sharedRoutines').orderBy('createdAt','desc').limit(20).get();
+    const snap = await db.collection('sharedRoutines').orderBy('createdAt','desc').limit(50).get();
     state.rutinas.community = snap.docs.map(d=>({ id:d.id, ...d.data() }));
   }catch(e){
     console.error('Error cargando rutinas comunitarias', e);
@@ -1725,34 +2822,73 @@ function renderCommunityRoutines(c){
     grid.innerHTML = `<div class="empty-cta">Nadie ha compartido rutinas todavía. ¡Sé el primero desde "Mis rutinas"!</div>`;
     return;
   }
-  grid.innerHTML = '';
-  state.rutinas.community.forEach(r=>{
+  const term = (state.rutinas.routineSearch||'').toLowerCase().trim();
+  let list = state.rutinas.community.filter(r=> !term || r.name.toLowerCase().includes(term) || (r.authorName||'').toLowerCase().includes(term));
+  if(!appData.favoriteRoutines) appData.favoriteRoutines = [];
+  const sortMode = state.rutinas.communitySort || 'popular';
+  list = [...list].sort((a,b)=>{
+    const favA = appData.favoriteRoutines.includes(a.id) ? 1 : 0;
+    const favB = appData.favoriteRoutines.includes(b.id) ? 1 : 0;
+    if(favA!==favB) return favB-favA;
+    if(sortMode==='popular') return ((b.copiesCount||0)+(b.startsCount||0)) - ((a.copiesCount||0)+(a.startsCount||0));
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+  if(list.length===0){
+    grid.innerHTML = `<div class="empty-cta">Ninguna rutina de la comunidad coincide con "${state.rutinas.routineSearch}".</div>`;
+    return;
+  }
+  grid.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="filter-btn ${sortMode==='popular'?'active':''}" id="sortPopularBtn">🔥 Más populares</button>
+      <button class="filter-btn ${sortMode==='recent'?'active':''}" id="sortRecentBtn">🆕 Más recientes</button>
+    </div>
+    <div id="communityCards"></div>`;
+  document.getElementById('sortPopularBtn').onclick = ()=>{ state.rutinas.communitySort='popular'; renderCommunityRoutines(c); };
+  document.getElementById('sortRecentBtn').onclick = ()=>{ state.rutinas.communitySort='recent'; renderCommunityRoutines(c); };
+  const cardsBox = document.getElementById('communityCards');
+  list.forEach(r=>{
     const validExercises = cleanRoutineExercises(r.exercises);
     const exCount = flattenRoutineExercises(validExercises).length;
+    const isFav = appData.favoriteRoutines.includes(r.id);
+    const uses = (r.copiesCount||0)+(r.startsCount||0);
     const card = document.createElement('div'); card.className='rcard';
     card.innerHTML = `
-      <div class="rcard-top"><div><p class="rcard-title">${r.name}</p><p class="rcard-sub">por ${r.authorName || 'Usuario'} · ${exCount} ejercicios</p></div></div>
+      <div class="rcard-top">
+        <div><p class="rcard-title">${r.name}</p><p class="rcard-sub">por ${r.authorName || 'Usuario'} · ${exCount} ejercicios ${uses>0?`· usada ${uses} veces`:''}</p></div>
+        <button data-fav style="background:none;border:none;font-size:18px;cursor:pointer;color:${isFav?'var(--gold)':'var(--text-dim)'};">★</button>
+      </div>
       <ul class="rcard-list">${renderRoutinePreviewList(validExercises)}</ul>
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="copy">📋 Copiar a mis rutinas</button>
       </div>`;
-    card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(r.name, validExercises);
+    card.querySelector('[data-fav]').onclick = async ()=>{
+      appData.favoriteRoutines = isFav ? appData.favoriteRoutines.filter(id=>id!==r.id) : [...appData.favoriteRoutines, r.id];
+      await saveData();
+      renderCommunityRoutines(c);
+    };
+    card.querySelector('[data-action="start"]').onclick = ()=>{
+      startWorkout(r.name, validExercises);
+      db.collection('sharedRoutines').doc(r.id).update({ startsCount: firebase.firestore.FieldValue.increment(1) }).catch(()=>{});
+    };
     card.querySelector('[data-action="copy"]').onclick = async (e)=>{
       appData.customRoutines.push({ id:'r'+Date.now(), name: r.name + ' (copiada)', exercises: validExercises });
       await saveData();
+      db.collection('sharedRoutines').doc(r.id).update({ copiesCount: firebase.firestore.FieldValue.increment(1) }).catch(()=>{});
       e.target.textContent = '✓ Copiada a "Mis rutinas"';
       e.target.disabled = true;
     };
-    grid.appendChild(card);
+    cardsBox.appendChild(card);
   });
 }
 
 /* ============ RUTINAS: BUILDER ============ */
 function isGroupItem(item){ return typeof item === 'object' && item !== null && Array.isArray(item.group); }
+function isCustomTargetItem(item){ return typeof item === 'object' && item !== null && typeof item.id === 'string' && !Array.isArray(item.group); }
+function itemExId(item){ return isCustomTargetItem(item) ? item.id : item; }
 function flattenRoutineExercises(exercises){
   const out = [];
-  exercises.forEach(item=>{ if(isGroupItem(item)) out.push(...item.group); else out.push(item); });
+  exercises.forEach(item=>{ if(isGroupItem(item)) out.push(...item.group); else out.push(itemExId(item)); });
   return out;
 }
 function renderRoutinePreviewList(exercises){
@@ -1762,8 +2898,11 @@ function renderRoutinePreviewList(exercises){
       if(exs.length===0) return '';
       return `<li style="background:var(--accent-soft);"><span>⚡ ${exs.map(e=>e.name).join(' + ')}</span><span class="ex-sets">superserie</span></li>`;
     }
-    const ex = findEx(item);
-    return ex ? `<li><span>${ex.name}</span><span class="ex-sets">${ex.setsCount}x${ex.repsTarget}</span></li>` : '';
+    const ex = findEx(itemExId(item));
+    if(!ex) return '';
+    const setsCount = isCustomTargetItem(item) ? item.setsCount : effSets(ex);
+    const repsTarget = isCustomTargetItem(item) ? item.repsTarget : effReps(ex);
+    return `<li><span>${ex.name}${isCustomTargetItem(item)?' <span style="color:var(--gold);">★</span>':''}</span><span class="ex-sets">${setsCount}x${repsTarget}</span></li>`;
   }).join('');
 }
 function cleanRoutineExercises(exercises){
@@ -1772,6 +2911,7 @@ function cleanRoutineExercises(exercises){
       const valid = item.group.filter(id=>findEx(id));
       return valid.length>=2 ? {group:valid} : (valid.length===1 ? valid[0] : null);
     }
+    if(isCustomTargetItem(item)) return findEx(item.id) ? item : null;
     return findEx(item) ? item : null;
   }).filter(x=>x!==null);
 }
@@ -1780,6 +2920,7 @@ function renderBuilder(c){
   const st = state.rutinas;
   if(!st.builderGroups) st.builderGroups = []; // array of {ids:[...]}
   if(!st.groupingTemp) st.groupingTemp = [];
+  if(!st.builderCustomTargets) st.builderCustomTargets = {};
 
   const groupedIds = st.builderGroups.flatMap(g=>g.ids);
   const ungroupedSelected = st.builderSelected.filter(id=>!groupedIds.includes(id));
@@ -1787,7 +2928,7 @@ function renderBuilder(c){
   c.innerHTML = `
     <div class="builder-bar">
       <button class="btn btn-ghost" id="backBtn">← Volver</button>
-      <button class="btn btn-primary" id="saveRoutineBtn">Guardar rutina (${st.builderSelected.length})</button>
+      <button class="btn btn-primary" id="saveRoutineBtn">${st.editingId ? 'Guardar cambios' : 'Guardar rutina'} (${st.builderSelected.length})</button>
     </div>
     <input class="name-input" id="routineName" placeholder="Nombre de la rutina (ej: Full Body Lunes)" value="${st.builderName.replace(/"/g,'')}">
 
@@ -1809,10 +2950,26 @@ function renderBuilder(c){
       <button class="btn btn-ghost btn-sm" id="groupBtn">Agrupar seleccionados en superserie</button>
     </div>` : ''}
 
+    ${ungroupedSelected.length>0 ? `
+    <div class="chart-card" style="margin-bottom:12px;">
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">🎯 <b>Series/reps para esta rutina (opcional):</b> ajusta solo para esta rutina, sin afectar otras.</p>
+      ${ungroupedSelected.map(id=>{
+        const ex = findEx(id);
+        const custom = st.builderCustomTargets && st.builderCustomTargets[id];
+        const setsVal = custom ? custom.setsCount : effSets(ex);
+        const repsVal = custom ? custom.repsTarget : effReps(ex);
+        return `<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:8px;">
+          <div style="flex:2;font-size:12.5px;padding-bottom:9px;">${ex.name}</div>
+          <div style="flex:1;"><input class="set-input" type="number" min="1" max="10" id="ct-sets-${id}" value="${setsVal}"></div>
+          <div style="flex:1;"><input class="set-input" type="text" id="ct-reps-${id}" value="${repsVal}"></div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
     <div class="filters" id="builderFilters"></div>
     <div class="grid" id="builderGrid"></div>`;
 
-  document.getElementById('backBtn').onclick = ()=>{ st.view='list'; render(); };
+  document.getElementById('backBtn').onclick = ()=>{ st.editingId=null; st.view='list'; render(); };
   document.getElementById('routineName').oninput = (e)=>{ st.builderName = e.target.value; };
 
   if(st.builderSelected.length>0){
@@ -1839,6 +2996,20 @@ function renderBuilder(c){
 
   document.getElementById('saveRoutineBtn').onclick = async ()=>{
     if(st.builderSelected.length===0){ alert('Selecciona al menos un ejercicio.'); return; }
+    if(!st.builderCustomTargets) st.builderCustomTargets = {};
+    ungroupedSelected.forEach(id=>{
+      const setsInput = document.getElementById(`ct-sets-${id}`);
+      const repsInput = document.getElementById(`ct-reps-${id}`);
+      if(!setsInput || !repsInput) return;
+      const ex = findEx(id);
+      const setsVal = Number(setsInput.value) || effSets(ex);
+      const repsVal = repsInput.value.trim() || effReps(ex);
+      if(setsVal !== effSets(ex) || repsVal !== effReps(ex)){
+        st.builderCustomTargets[id] = { setsCount: setsVal, repsTarget: repsVal };
+      } else {
+        delete st.builderCustomTargets[id];
+      }
+    });
     const groupedIdsNow = st.builderGroups.flatMap(g=>g.ids);
     const finalExercises = [];
     const placedGroups = new Set();
@@ -1846,13 +3017,20 @@ function renderBuilder(c){
       const groupIndex = st.builderGroups.findIndex(g=>g.ids.includes(id));
       if(groupIndex>=0){
         if(!placedGroups.has(groupIndex)){ finalExercises.push({ group: st.builderGroups[groupIndex].ids.slice() }); placedGroups.add(groupIndex); }
+      } else if(st.builderCustomTargets[id]){
+        finalExercises.push({ id, setsCount: st.builderCustomTargets[id].setsCount, repsTarget: st.builderCustomTargets[id].repsTarget });
       } else {
         finalExercises.push(id);
       }
     });
-    appData.customRoutines.push({ id:'r'+Date.now(), name: st.builderName.trim()||'Mi rutina', exercises: finalExercises });
+    if(st.editingId){
+      const idx = appData.customRoutines.findIndex(r=>r.id===st.editingId);
+      if(idx>=0) appData.customRoutines[idx] = { id: st.editingId, name: st.builderName.trim()||'Mi rutina', exercises: finalExercises };
+    } else {
+      appData.customRoutines.push({ id:'r'+Date.now(), name: st.builderName.trim()||'Mi rutina', exercises: finalExercises });
+    }
     await saveData();
-    st.builderGroups = []; st.groupingTemp = [];
+    st.builderGroups = []; st.groupingTemp = []; st.editingId = null; st.builderCustomTargets = {};
     st.view='list'; render();
   };
 
@@ -1876,7 +3054,7 @@ function renderBuilder(c){
         <div class="pick-name">${item.name}</div>
         <div class="meta-row" style="margin-top:5px;">
           <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
-          <span class="level">${item.setsCount}x${item.repsTarget}</span>
+          <span class="level">${effSets(item)}x${effReps(item)}</span>
         </div>
       </div>`;
     card.onclick = ()=>{
@@ -1884,6 +3062,7 @@ function renderBuilder(c){
         st.builderSelected = st.builderSelected.filter(id=>id!==item.id);
         st.builderGroups = st.builderGroups.filter(g=>!g.ids.includes(item.id));
         st.groupingTemp = st.groupingTemp.filter(id=>id!==item.id);
+        if(st.builderCustomTargets) delete st.builderCustomTargets[item.id];
       } else {
         st.builderSelected = [...st.builderSelected, item.id];
       }
@@ -1894,11 +3073,25 @@ function renderBuilder(c){
 }
 
 /* ============ WORKOUT ============ */
-function buildSets(exId){
+function effSets(ex){
+  const ov = appData.exerciseOverrides && appData.exerciseOverrides[ex.id];
+  return (ov && ov.setsCount) ? ov.setsCount : ex.setsCount;
+}
+function effReps(ex){
+  const ov = appData.exerciseOverrides && appData.exerciseOverrides[ex.id];
+  return (ov && ov.repsTarget) ? ov.repsTarget : ex.repsTarget;
+}
+async function setExerciseOverride(exId, setsCount, repsTarget){
+  if(!appData.exerciseOverrides) appData.exerciseOverrides = {};
+  appData.exerciseOverrides[exId] = { setsCount, repsTarget };
+  await saveData();
+}
+function buildSets(exId, overrideSetsCount){
   const ex = findEx(exId);
   const prev = lastProgress(exId);
   const sets = [];
-  for(let i=0;i<ex.setsCount;i++) sets.push({ weight: prev?prev.weight:0, reps: prev?prev.reps:'', done:false });
+  const n = overrideSetsCount || effSets(ex);
+  for(let i=0;i<n;i++) sets.push({ weight: prev?prev.weight:0, reps: prev?prev.reps:'', done:false });
   return sets;
 }
 function startWorkout(name, exerciseItems){
@@ -1906,7 +3099,9 @@ function startWorkout(name, exerciseItems){
     if(isGroupItem(item)){
       return { kind:'superset', ids: item.group.slice(), subs: item.group.map(id=>({ id, sets: buildSets(id) })) };
     }
-    return { kind:'single', id: item, sets: buildSets(item) };
+    const exId = itemExId(item);
+    const overrideSets = isCustomTargetItem(item) ? item.setsCount : null;
+    return { kind:'single', id: exId, sets: buildSets(exId, overrideSets) };
   });
   state.rutinas.activeSession = { name, startedAt: new Date().toISOString(), exercises };
   state.rutinas.warmupExpanded = true;
@@ -1990,21 +3185,24 @@ function renderWorkout(c){
     session.exercises.forEach(item=>{
       const subs = item.kind==='superset' ? item.subs : [item];
       subs.forEach(sub=>{
+        const subEx = findEx(sub.id);
+        const subUnit = unitForExercise(subEx);
         const lastDone = [...sub.sets].reverse().find(s=>s.done) || sub.sets[sub.sets.length-1];
         if(lastDone && lastDone.reps!=='' && lastDone.reps!==null){
-          pushProgress(sub.id, { date:new Date().toISOString(), weight:Number(lastDone.weight)||0, reps:lastDone.reps, unit:appData.unit });
+          pushProgress(sub.id, { date:new Date().toISOString(), weight:Number(lastDone.weight)||0, reps:lastDone.reps, unit:subUnit });
         }
-        flatForHistory.push({ id: sub.id, name: findEx(sub.id).name, sets: sub.sets.filter(s=>s.done).map(s=>({weight:Number(s.weight)||0, reps:s.reps, unit:appData.unit})) });
+        flatForHistory.push({ id: sub.id, name: subEx.name, sets: sub.sets.filter(s=>s.done).map(s=>({weight:Number(s.weight)||0, reps:s.reps, unit:subUnit})) });
       });
     });
     appData.history.unshift({
       id:'h'+Date.now(), name:session.name, date:new Date().toISOString(), note: state.rutinas.sessionNote || '',
       exercises: flatForHistory
     });
-    if(appData.history.length>30) appData.history = appData.history.slice(0,30);
+    if(appData.history.length>200) appData.history = appData.history.slice(0,200);
     await saveData();
     updateLeaderboard();
     updateMonthlyChallenge();
+    updateSportRecord();
     postActivity(session.name, flatForHistory.length);
     stopRestTimer();
     state.rutinas.activeSession=null; state.rutinas.sessionNote=''; state.rutinas.view='list'; state.tab='historial';
@@ -2012,7 +3210,7 @@ function renderWorkout(c){
   };
 
   const list = document.getElementById('wexList');
-  session.exercises.forEach(item=>{
+  session.exercises.forEach((item, idx)=>{
     if(item.kind==='superset'){
       const allDone = item.subs.every(sub=>sub.sets.every(s=>s.done));
       const wrap = document.createElement('div');
@@ -2023,17 +3221,22 @@ function renderWorkout(c){
         <div class="supersetSubs"></div>
         <button class="btn btn-ghost btn-sm" data-rest-round style="margin-top:8px;">😮‍💨 Descansar ronda</button>`;
       const subsWrap = wrap.querySelector('.supersetSubs');
-      item.subs.forEach(sub=>{
+      item.subs.forEach((sub, subIdx)=>{
         const ex = findEx(sub.id);
         const subBox = document.createElement('div');
         subBox.style.cssText = 'border-top:1px solid var(--line);padding-top:10px;margin-top:10px;';
-        subBox.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px;">${ex.name} <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;font-weight:600;">▶️ Ver video</a></div><div class="setsWrap"></div>`;
+        subBox.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px;">${ex.name} <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;font-weight:600;">▶️ Ver video</a> · <a id="swap-sub-${idx}-${subIdx}" style="color:var(--tag-lower);font-size:11px;font-weight:600;cursor:pointer;">🔄 Cambiar</a></div><div class="setsWrap"></div>`;
         const setsWrap = subBox.querySelector('.setsWrap');
         sub.sets.forEach((s, setIdx)=>{
           const row = buildSetRow(s, setIdx, ex, ()=>{ renderWorkout(c); }, false);
           setsWrap.appendChild(row);
         });
         subsWrap.appendChild(subBox);
+        subBox.querySelector(`#swap-sub-${idx}-${subIdx}`).onclick = ()=> openSwapModal(sub.id, (newId)=>{
+          sub.id = newId;
+          sub.sets = buildSets(newId);
+          renderWorkout(c);
+        });
       });
       wrap.querySelector('[data-rest-round]').onclick = ()=> startRestTimer(appData.restSeconds || 90);
       list.appendChild(wrap);
@@ -2050,22 +3253,56 @@ function renderWorkout(c){
         <div class="wex-name">${allDone?'<span class="wex-check">✓</span>':''}${ex.name}</div>
         <span class="tag tag-${ex.group}">${LABELS[ex.group]}</span>
       </div>
-      <div class="wex-last">${lastBadge || 'Sin registros previos'} · <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);">▶️ Ver video</a></div>
+      <div class="wex-last">${lastBadge || 'Sin registros previos'} · <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);">▶️ Ver video</a> · <a id="swap-${item.id}-${idx}" style="color:var(--tag-lower);cursor:pointer;">🔄 Cambiar</a></div>
       <div class="setsWrap"></div>`;
     const setsWrap = box.querySelector('.setsWrap');
     item.sets.forEach((s, setIdx)=>{
       const row = buildSetRow(s, setIdx, ex, ()=>{ renderWorkout(c); }, true);
       setsWrap.appendChild(row);
     });
+    box.querySelector(`#swap-${item.id}-${idx}`).onclick = ()=> openSwapModal(item.id, (newId)=>{
+      item.id = newId;
+      item.sets = buildSets(newId);
+      renderWorkout(c);
+    });
     list.appendChild(box);
   });
 }
+function openSwapModal(currentExId, onPick){
+  const currentEx = findEx(currentExId);
+  const variants = getVariants(currentExId, 6);
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">🔄 Cambiar ejercicio</div>
+      <p class="guide-sub">¿La máquina de "${currentEx.name}" está ocupada o no está disponible? Elige otro del mismo grupo muscular.</p>
+      <div id="swapList"></div>
+      <button class="btn btn-ghost btn-block" id="swapCancelBtn" style="margin-top:10px;">Cancelar</button>
+    </div>`;
+  document.body.appendChild(modal);
+  const listEl = modal.querySelector('#swapList');
+  if(variants.length===0){
+    listEl.innerHTML = `<div class="empty" style="padding:10px;">No hay otras opciones registradas en este grupo muscular todavía.</div>`;
+  }
+  variants.forEach(v=>{
+    const row = document.createElement('div');
+    row.className = 'pick-card';
+    row.style.marginBottom = '8px';
+    row.innerHTML = `<div class="pick-info"><div class="pick-name">${v.name}</div><div class="level" style="margin-top:4px;">${v.setsCount}x${v.repsTarget}${v.isTime?' seg':' reps'}</div></div>`;
+    row.onclick = ()=>{ onPick(v.id); modal.remove(); };
+    listEl.appendChild(row);
+  });
+  modal.querySelector('#swapCancelBtn').onclick = ()=> modal.remove();
+}
+function unitForExercise(ex){ return ex.metricType==='altura' ? 'cm' : appData.unit; }
 function buildSetRow(s, setIdx, ex, onChange, allowAutoRest){
   const row = document.createElement('div'); row.className='set-row';
+  const isHeight = ex.metricType==='altura';
   row.innerHTML = `
     <div class="set-label">Serie ${setIdx+1}</div>
-    <input class="set-input" type="number" min="0" placeholder="0" value="${s.weight||''}" ${ex.isTime?'style="display:none"':''}>
-    <div class="set-unit" ${ex.isTime?'style="display:none"':''}>${appData.unit}</div>
+    <input class="set-input" type="number" min="0" placeholder="${isHeight?'cm':'0'}" value="${s.weight||''}" ${ex.isTime?'style="display:none"':''}>
+    <div class="set-unit" ${ex.isTime?'style="display:none"':''}>${unitForExercise(ex)}</div>
     <input class="set-input" type="number" min="0" placeholder="${ex.isTime?'seg':'reps'}" value="${s.reps||''}">
     <button class="set-done-btn ${s.done?'done':''}">✓</button>`;
   const inputs = row.querySelectorAll('.set-input');
@@ -2086,9 +3323,45 @@ function renderHistorial(c){
     c.innerHTML = `<div class="empty-cta">Aún no has completado ninguna rutina. Cuando termines una desde la pestaña "Rutinas", aparecerá aquí.</div>`;
     return;
   }
-  c.innerHTML = `<div class="section-title">Sesiones completadas <span class="n">(${appData.history.length})</span></div><div id="histList"></div>`;
+  if(!state.historial) state.historial = { month:'todos', search:'' };
+  const monthKeys = [...new Set(appData.history.map(h=>h.date.slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+  const monthLabel = (mk)=> new Date(mk+'-15').toLocaleDateString('es-CL',{month:'long',year:'numeric'});
+
+  c.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="section-title" style="margin:0;">Sesiones completadas <span class="n">(${appData.history.length})</span></div>
+      <button class="btn btn-ghost btn-sm" id="exportPdfBtn" title="Exporta según el filtro de mes/búsqueda activo">📄 Exportar a PDF</button>
+    </div>
+    <div style="display:flex;gap:8px;margin:10px 0;">
+      <select class="name-input" id="histMonthFilter" style="flex:1;margin-bottom:0;">
+        <option value="todos">Todos los meses</option>
+        ${monthKeys.map(mk=>`<option value="${mk}" ${state.historial.month===mk?'selected':''}>${monthLabel(mk)}</option>`).join('')}
+      </select>
+      <input class="name-input" id="histSearchFilter" placeholder="Buscar por nombre de rutina..." value="${state.historial.search.replace(/"/g,'')}" style="flex:1;margin-bottom:0;">
+    </div>
+    <div id="histList" style="margin-top:10px;"></div>`;
+  document.getElementById('exportPdfBtn').onclick = ()=> exportHistoryPdf();
+  document.getElementById('histMonthFilter').onchange = (e)=>{ state.historial.month = e.target.value; renderHistoryList(); };
+  document.getElementById('histSearchFilter').oninput = (e)=>{ state.historial.search = e.target.value; renderHistoryList(); };
+  renderHistoryList();
+}
+function filteredHistory(){
+  const term = state.historial.search.toLowerCase().trim();
+  return appData.history.filter(h=>
+    (state.historial.month==='todos' || h.date.slice(0,7)===state.historial.month) &&
+    (!term || h.name.toLowerCase().includes(term))
+  );
+}
+function renderHistoryList(){
   const list = document.getElementById('histList');
-  appData.history.forEach(h=>{
+  if(!list) return;
+  const filtered = filteredHistory();
+  if(filtered.length===0){
+    list.innerHTML = `<div class="empty-cta">Ninguna sesión coincide con ese filtro.</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  filtered.forEach(h=>{
     const dateStr = new Date(h.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
     const card = document.createElement('div'); card.className='hist-card';
     card.innerHTML = `
@@ -2103,6 +3376,44 @@ function renderHistorial(c){
   });
 }
 
+function exportHistoryPdf(){
+  const p = appData.profile;
+  const userName = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
+  const historyToExport = filteredHistory();
+  const rangeLabel = state.historial.month==='todos' ? 'Todo el historial' : new Date(state.historial.month+'-15').toLocaleDateString('es-CL',{month:'long',year:'numeric'});
+  const rows = historyToExport.map(h=>{
+    const dateStr = new Date(h.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
+    const exRows = h.exercises.map(ex=>{
+      if(ex.sets.length===0) return `<tr><td>${ex.name}</td><td colspan="2">Sin series marcadas</td></tr>`;
+      return ex.sets.map((s,i)=>`<tr><td>${i===0?ex.name:''}</td><td>Serie ${i+1}</td><td>${s.weight>0?s.weight+s.unit:'—'} x ${s.reps}</td></tr>`).join('');
+    }).join('');
+    return `
+      <h3 style="margin:18px 0 4px;font-size:14px;">${h.name} — ${dateStr}</h3>
+      ${h.note ? `<p style="font-size:11px;color:#555;margin:0 0 6px;font-style:italic;">Nota: ${h.note}</p>` : ''}
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px;">
+        <thead><tr style="border-bottom:1px solid #999;"><th style="text-align:left;padding:3px;">Ejercicio</th><th style="text-align:left;padding:3px;">Serie</th><th style="text-align:left;padding:3px;">Peso x Reps</th></tr></thead>
+        <tbody>${exRows}</tbody>
+      </table>`;
+  }).join('');
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Historial de entrenamiento</title>
+    <style>
+      body{font-family:Arial, sans-serif;color:#111;padding:24px;}
+      h1{font-size:20px;margin:0 0 4px;}
+      p.sub{color:#555;font-size:12px;margin:0 0 20px;}
+      table{page-break-inside:avoid;}
+    </style></head>
+    <body>
+      <h1>Historial de entrenamiento — ${userName}</h1>
+      <p class="sub">Generado el ${new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})} · ${rangeLabel} · ${historyToExport.length} sesiones</p>
+      ${rows || '<p>No hay sesiones en este rango.</p>'}
+    </body></html>
+  `);
+  win.document.close();
+  setTimeout(()=>{ win.print(); }, 400);
+}
+
 /* ============ PROGRESO ============ */
 function renderProgreso(c){
   const streak = computeStreak(appData.history);
@@ -2113,27 +3424,30 @@ function renderProgreso(c){
   const nivelLabel = {'principiante':'Principiante','intermedio':'Intermedio','avanzado':'Avanzado'};
 
   c.innerHTML = `
-    ${p && p.nombre ? `
-    <div class="chart-card" style="display:flex;align-items:center;gap:14px;">
-      <div class="user-avatar" id="profileAvatarEl" style="width:48px;height:48px;font-size:16px;"></div>
-      <div style="flex:1;">
-        <div style="font-size:15px;font-weight:700;">${p.nombre} ${p.apellido||''}</div>
-        <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">
-          ${p.edad?p.edad+' años · ':''}${p.altura?p.altura+' cm':''}
-          ${p.objetivo ? ' · '+(objetivoLabel[p.objetivo]||p.objetivo) : ''}
-          ${p.nivel ? ' · '+(nivelLabel[p.nivel]||p.nivel) : ''}
-        </div>
-      </div>
-      <button class="btn btn-ghost btn-sm" id="editAvatarBtn">Editar avatar</button>
-    </div>` : ''}
-
     <div class="stat-row">
       <div class="stat-card"><div class="stat-num">🔥 ${streak}</div><div class="stat-label">racha de sesiones</div></div>
       <div class="stat-card"><div class="stat-num">${totalSessions}</div><div class="stat-label">rutinas completadas</div></div>
     </div>
 
+    <div class="chart-card" id="volumeCard"></div>
+
     <div class="section-title">Logros <span class="n">(${ACHIEVEMENTS.filter(a=>a.check()).length}/${ACHIEVEMENTS.length})</span></div>
     <div id="achievementsGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:8px;"></div>
+
+    <div class="section-title">Compañero de entrenamiento</div>
+    <div class="chart-card">
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Comparte tu código para entrenar junto a alguien y comparar su progreso con el tuyo.</p>
+      <div style="display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--accent-dim);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+        <span style="font-size:11px;color:var(--text-dim);flex:1;">Tu código de invitación</span>
+        <span style="font-size:16px;font-weight:800;color:var(--accent);letter-spacing:1px;">${myInviteCode()}</span>
+        <button class="btn btn-ghost btn-sm" id="copyCodeBtn">Copiar</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <input class="set-input" style="text-align:left;flex:1;" id="partnerCodeInput" placeholder="Código de tu amigo/pareja" maxlength="8">
+        <button class="btn btn-primary btn-sm" id="addPartnerBtn">Agregar</button>
+      </div>
+      <div id="partnersBox"></div>
+    </div>
 
     <div class="section-title">Miembros de la app <span class="n">(quiénes tienen cuenta)</span></div>
     <div id="membersBox"></div>
@@ -2141,11 +3455,15 @@ function renderProgreso(c){
     <div class="section-title">Récords personales (PRs)</div>
     <div id="prList"></div>
 
-    <div class="section-title">Ranking de constancia <span class="n">(entre usuarios de la app)</span></div>
+    <div class="section-title">Ranking de constancia <span class="n">(tú y tus compañeros)</span></div>
     <div id="leaderboardBox"></div>
 
-    <div class="section-title">Reto del mes <span class="n">(quién entrena más veces)</span></div>
+    <div class="section-title">Reto del mes <span class="n">(tú y tus compañeros)</span></div>
     <div id="monthlyBox"></div>
+
+    ${(appData.profile && appData.profile.deporte && appData.profile.deporte!=='ninguno') ? `
+    <div class="section-title">Ranking de rendimiento <span class="n">(${SPORTS.find(s=>s.key===appData.profile.deporte).label}, tu grupo)</span></div>
+    <div id="sportRankBox"></div>` : ''}
 
     <div class="section-title">Actividad reciente</div>
     <div id="activityBox"></div>
@@ -2153,6 +3471,10 @@ function renderProgreso(c){
     <div class="section-title">Progreso por ejercicio</div>
     <select class="name-input" id="chartExSelect"></select>
     <div class="chart-card" id="chartCard"></div>
+
+    ${(appData.profile && appData.profile.deporte==='running' && appData.cardioLog.length>0) ? `
+    <div class="section-title">Progreso de ritmo (running)</div>
+    <div class="chart-card" id="paceChartCard"></div>` : ''}
 
     <div class="section-title">Peso corporal</div>
     <div class="chart-card">
@@ -2163,30 +3485,41 @@ function renderProgreso(c){
       <div id="bwChart" style="margin-top:14px;"></div>
       <div class="bw-list" id="bwList"></div>
     </div>
-
-    <div class="section-title">Respaldo de tus datos</div>
-    <div class="chart-card">
-      <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 12px;">Tu progreso se guarda en este iPhone. Descarga un respaldo de vez en cuando por si borras datos de Safari o cambias de equipo.</p>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" id="exportBtn" style="flex:1;">⬇️ Descargar respaldo</button>
-        <button class="btn btn-ghost" id="importBtn" style="flex:1;">⬆️ Restaurar respaldo</button>
-      </div>
-      <input type="file" id="importFile" accept="application/json" style="display:none;">
-    </div>
   `;
 
   // PR list
   const prList = document.getElementById('prList');
-  if(p && p.nombre){
-    const initials = (p.nombre[0]||'').toUpperCase() + (p.apellido?p.apellido[0].toUpperCase():'');
-    setAvatarElement(document.getElementById('profileAvatarEl'), p, 48, initials);
-    document.getElementById('editAvatarBtn').onclick = ()=> openAvatarEditModal();
-  }
+  renderVolumeCard();
   renderLeaderboardSection();
   renderMonthlySection();
+  renderSportRankSection();
   renderActivitySection();
   renderAchievements();
   renderMembersSection();
+  if(appData.profile && appData.profile.deporte==='running' && appData.cardioLog.length>0){
+    const paceBox = document.getElementById('paceChartCard');
+    if(paceBox){
+      const points = [...appData.cardioLog].reverse().map(r=>({label: new Date(r.date).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}), value: r.paceMinKm}));
+      paceBox.innerHTML = `<div class="chart-title">Ritmo (min/km) — más bajo es mejor</div>` + svgLineChart(points);
+    }
+  }
+  renderPartnersSection();
+  document.getElementById('copyCodeBtn').onclick = ()=>{
+    navigator.clipboard.writeText(myInviteCode()).then(()=>{
+      const btn = document.getElementById('copyCodeBtn');
+      const original = btn.textContent; btn.textContent = '¡Copiado!';
+      setTimeout(()=>{ btn.textContent = original; }, 1500);
+    }).catch(()=> alert('Tu código es: ' + myInviteCode()));
+  };
+  document.getElementById('addPartnerBtn').onclick = async ()=>{
+    const btn = document.getElementById('addPartnerBtn');
+    const input = document.getElementById('partnerCodeInput');
+    btn.disabled = true; btn.textContent = '...';
+    const res = await addPartnerByCode(input.value);
+    btn.disabled = false; btn.textContent = 'Agregar';
+    if(res.ok){ input.value=''; renderPartnersSection(); setupPartnerNotifications(); }
+    else alert(res.msg);
+  };
   if(exercisesWithData.length===0){
     prList.innerHTML = `<div class="empty-cta">Completa alguna rutina para empezar a ver tus récords aquí.</div>`;
   } else {
@@ -2218,7 +3551,7 @@ function renderProgreso(c){
     const ex = findEx(state.progreso.chartExId);
     const log = getProgressLog(ex.id);
     const points = log.map(entry=>({ label: shortDate(entry.date), value: ex.isTime ? entry.reps : (Number(entry.weight)>0 ? entry.weight : entry.reps) }));
-    const unitLabel = ex.isTime ? 'segundos' : (log.some(e=>Number(e.weight)>0) ? `peso (${appData.unit})` : 'repeticiones');
+    const unitLabel = ex.metricType==='altura' ? 'altura (cm)' : (ex.isTime ? 'segundos' : (log.some(e=>Number(e.weight)>0) ? `peso (${appData.unit})` : 'repeticiones'));
     document.getElementById('chartCard').innerHTML = `<div class="chart-title">${ex.name} · ${unitLabel}</div>` + svgLineChart(points);
   }
 
@@ -2243,11 +3576,164 @@ function renderProgreso(c){
       bwList.appendChild(row);
     });
   }
+}
+
+/* ============ PERFIL ============ */
+function renderPerfil(c){
+  const p = appData.profile;
+  const objetivoLabel = {'bajar-grasa':'Bajar de grasa','ganar-musculo':'Ganar músculo','mantener':'Mantenerme / salud general'};
+  const nivelLabel = {'principiante':'Principiante','intermedio':'Intermedio','avanzado':'Avanzado'};
+
+  c.innerHTML = `
+    ${p && p.nombre ? `
+    <div class="chart-card" style="display:flex;align-items:center;gap:14px;">
+      <div class="user-avatar" id="profileAvatarEl" style="width:56px;height:56px;font-size:18px;"></div>
+      <div style="flex:1;">
+        <div style="font-size:16px;font-weight:700;">${p.nombre} ${p.apellido||''}</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">
+          ${p.edad?p.edad+' años · ':''}${p.altura?p.altura+' cm':''}
+          ${p.objetivo ? ' · '+(objetivoLabel[p.objetivo]||p.objetivo) : ''}
+          ${p.nivel ? ' · '+(nivelLabel[p.nivel]||p.nivel) : ''}
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin:10px 0 0;">
+      <button class="btn btn-ghost btn-sm" id="editAvatarBtn" style="flex:1;">🎨 Editar avatar</button>
+      <button class="btn btn-ghost btn-sm" id="editProfileBtn" style="flex:1;">✏️ Editar datos</button>
+    </div>
+
+    <div class="section-title">Deporte favorito</div>
+    <div class="chart-card" style="display:flex;align-items:center;gap:10px;">
+      <select class="name-input" id="perfilDeporte" style="margin:0;flex:1;">
+        <option value="ninguno" ${p.deporte==='ninguno'||!p.deporte?'selected':''}>Ninguno en particular</option>
+        <option value="tenis" ${p.deporte==='tenis'?'selected':''}>Tenis</option>
+        <option value="futbol" ${p.deporte==='futbol'?'selected':''}>Fútbol</option>
+        <option value="basquetbol" ${p.deporte==='basquetbol'?'selected':''}>Básquetbol</option>
+        <option value="boxeo" ${p.deporte==='boxeo'?'selected':''}>Boxeo</option>
+        <option value="running" ${p.deporte==='running'?'selected':''}>Running</option>
+        <option value="crossfit" ${p.deporte==='crossfit'?'selected':''}>Crossfit</option>
+      </select>
+      <button class="btn btn-primary btn-sm" id="saveDeporteBtn">Guardar</button>
+    </div>` : `
+    <div class="chart-card" style="display:flex;align-items:center;gap:14px;background:linear-gradient(135deg, var(--panel), var(--accent-soft));">
+      <div style="font-size:24px;">👋</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">Completa tu perfil</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Agrega tu nombre, edad, avatar y deporte para aparecer bien en Miembros y Compañeros.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="completeProfileBtn">Completar</button>
+    </div>`}
+
+    <div class="section-title">Pausa de entrenamiento</div>
+    <div class="chart-card" id="pauseCard"></div>
+
+    <div class="section-title">Preferencias</div>
+    <div class="chart-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:13px;">Unidad de peso</span>
+        <div class="unit-toggle" id="perfilUnitToggle">
+          <button class="unit-btn ${appData.unit==='kg'?'active':''}" data-u="kg">KG</button>
+          <button class="unit-btn ${appData.unit==='lb'?'active':''}" data-u="lb">LB</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:13px;">Tema de la app</span>
+        <button class="btn btn-ghost btn-sm" id="perfilThemeBtn">${(appData.theme||'dark')==='light' ? '☀️ Claro' : '🌙 Oscuro'}</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;">¿No entiendes algún término?</span>
+        <button class="btn btn-ghost btn-sm" id="perfilGlossaryBtn">📖 Glosario</button>
+      </div>
+    </div>
+
+    <div class="section-title">Respaldo de tus datos</div>
+    <div class="chart-card">
+      <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 12px;">Descarga un respaldo de vez en cuando por si cambias de equipo.</p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="exportBtn" style="flex:1;">⬇️ Descargar respaldo</button>
+        <button class="btn btn-ghost" id="importBtn" style="flex:1;">⬆️ Restaurar respaldo</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" style="display:none;">
+    </div>
+
+    <button class="btn btn-danger btn-block" id="perfilLogoutBtn" style="margin-top:8px;border:1px solid rgba(215,107,107,0.3);">Cerrar sesión</button>
+  `;
+
+  if(p && p.nombre){
+    const initials = (p.nombre[0]||'').toUpperCase() + (p.apellido?p.apellido[0].toUpperCase():'');
+    setAvatarElement(document.getElementById('profileAvatarEl'), p, 56, initials);
+    document.getElementById('editAvatarBtn').onclick = ()=> openAvatarEditModal();
+    document.getElementById('editProfileBtn').onclick = ()=> openCompleteProfileModal();
+    document.getElementById('saveDeporteBtn').onclick = async ()=>{
+      appData.profile.deporte = document.getElementById('perfilDeporte').value;
+      state.rutinas.generatedSport = null;
+      await saveData();
+      alert('Deporte actualizado.');
+    };
+  } else {
+    document.getElementById('completeProfileBtn').onclick = ()=> openCompleteProfileModal();
+  }
+
+  document.getElementById('perfilUnitToggle').querySelectorAll('.unit-btn').forEach(b=>{
+    b.onclick = async ()=>{ appData.unit = b.dataset.u; await saveData(); renderPerfil(c); };
+  });
+  document.getElementById('perfilThemeBtn').onclick = async ()=>{
+    const current = appData.theme === 'light' ? 'dark' : 'light';
+    appData.theme = current;
+    applyTheme(current);
+    await saveData();
+    renderPerfil(c);
+  };
   document.getElementById('exportBtn').onclick = ()=>exportBackup();
   document.getElementById('importBtn').onclick = ()=>document.getElementById('importFile').click();
   document.getElementById('importFile').onchange = (e)=>{
     if(e.target.files && e.target.files[0]) importBackup(e.target.files[0]);
   };
+  document.getElementById('perfilLogoutBtn').onclick = ()=>{
+    if(confirm('¿Cerrar sesión?')) document.getElementById('logoutBtn').click();
+  };
+  document.getElementById('perfilGlossaryBtn').onclick = ()=> showGlossaryModal();
+  renderPauseCard();
+}
+
+function renderPauseCard(){
+  const box = document.getElementById('pauseCard');
+  if(!box) return;
+  const pause = activePause();
+  if(pause){
+    box.innerHTML = `
+      <div style="font-size:13px;margin-bottom:8px;">⏸️ Pausado por: <b>${pause.reason}</b></div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">Desde ${new Date(pause.startDate).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}${pause.endDate ? ' hasta '+new Date(pause.endDate).toLocaleDateString('es-CL',{day:'2-digit',month:'short'}) : ' (sin fecha de fin)'}</div>
+      <button class="btn btn-primary btn-block" id="resumeBtn">▶️ Reanudar entrenamiento</button>
+    `;
+    document.getElementById('resumeBtn').onclick = async ()=>{
+      appData.pause = null;
+      appData.pendingComeback = true;
+      await saveData();
+      renderPauseCard();
+      alert('¡Listo! Cuando vayas a la pestaña Rutinas te vamos a sugerir una rutina de reincorporación suave para volver de a poco.');
+    };
+  } else {
+    box.innerHTML = `
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Si estás de torneo, lesionado o de viaje, márcalo aquí para que la app no te recuerde tu racha ni sugiera descarga mientras tanto.</p>
+      <select class="name-input" id="pauseReason" style="margin-bottom:10px;">
+        <option value="Lesión">Lesión</option>
+        <option value="Torneo o competencia">Torneo o competencia</option>
+        <option value="Viaje">Viaje</option>
+        <option value="Otro motivo">Otro motivo</option>
+      </select>
+      <input class="name-input" id="pauseEndDate" type="date" style="margin-bottom:10px;">
+      <button class="btn btn-ghost btn-block" id="startPauseBtn">⏸️ Pausar entrenamiento</button>
+    `;
+    document.getElementById('startPauseBtn').onclick = async ()=>{
+      const reason = document.getElementById('pauseReason').value;
+      const endDate = document.getElementById('pauseEndDate').value;
+      appData.pause = { reason, startDate: new Date().toISOString(), endDate: endDate ? new Date(endDate).toISOString() : null };
+      await saveData();
+      renderPauseCard();
+      checkStreakReminder();
+    };
+  }
 }
 
 /* ============ NUTRICIÓN ============ */
@@ -2324,6 +3810,148 @@ function renderNutricion(c){
     await saveData();
     renderNutricion(c);
   };
+}
+
+/* ============ IDEAS Y SUGERENCIAS ============ */
+async function fetchIdeas(){
+  try{
+    const snap = await db.collection('suggestions').orderBy('createdAt','desc').limit(50).get();
+    state.ideas = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  }catch(e){ console.error('Error cargando ideas', e); state.ideas = []; }
+  if(state.tab==='ideas'){
+    const c = document.getElementById('content');
+    if(c) renderIdeasList(c);
+  }
+}
+async function submitIdea(text){
+  const p = appData.profile;
+  const authorName = p && p.nombre ? (p.nombre + ' ' + (p.apellido||'')).trim() : (currentUser.displayName || 'Usuario');
+  await db.collection('suggestions').add({
+    text, authorUid: currentUser.uid, authorName, createdAt: new Date().toISOString(), votes: [], status: 'abierta'
+  });
+  state.ideas = null;
+}
+function findSimilarIdea(text){
+  if(!state.ideas) return null;
+  const words = text.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+  if(words.length===0) return null;
+  let best = null, bestScore = 0;
+  state.ideas.forEach(idea=>{
+    const otherWords = idea.text.toLowerCase().split(/\s+/);
+    const matches = words.filter(w=>otherWords.some(ow=>ow.includes(w)||w.includes(ow))).length;
+    const score = matches / words.length;
+    if(score>bestScore){ bestScore = score; best = idea; }
+  });
+  return bestScore>=0.5 ? best : null;
+}
+async function toggleIdeaVote(ideaId){
+  const idea = state.ideas.find(i=>i.id===ideaId);
+  if(!idea) return;
+  const hasVoted = (idea.votes||[]).includes(currentUser.uid);
+  try{
+    await db.collection('suggestions').doc(ideaId).update({
+      votes: hasVoted ? firebase.firestore.FieldValue.arrayRemove(currentUser.uid) : firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+    });
+    idea.votes = hasVoted ? idea.votes.filter(u=>u!==currentUser.uid) : [...(idea.votes||[]), currentUser.uid];
+    renderIdeasList(document.getElementById('content'));
+  }catch(e){ console.error('Error votando idea', e); }
+}
+async function toggleIdeaImplemented(ideaId){
+  const idea = state.ideas.find(i=>i.id===ideaId);
+  if(!idea) return;
+  const newStatus = idea.status==='implementada' ? 'abierta' : 'implementada';
+  try{
+    await db.collection('suggestions').doc(ideaId).update({ status: newStatus });
+    idea.status = newStatus;
+    renderIdeasList(document.getElementById('content'));
+  }catch(e){ console.error('Error actualizando estado de idea', e); }
+}
+async function deleteIdea(ideaId){
+  if(!confirm('¿Eliminar esta sugerencia?')) return;
+  try{ await db.collection('suggestions').doc(ideaId).delete(); }catch(e){ console.error(e); }
+  state.ideas = state.ideas.filter(i=>i.id!==ideaId);
+  renderIdeasList(document.getElementById('content'));
+}
+function renderIdeas(c){
+  c.innerHTML = `
+    <div class="chart-card">
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">¿Qué le agregarías o mejorarías a la app? Escríbelo aquí — todos los que usan la app pueden verlo y votar las ideas que más les gusten.</p>
+      <textarea id="ideaInput" placeholder="Ej: Agregar un cronómetro para cardio..." style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;min-height:70px;margin-bottom:10px;font-family:inherit;"></textarea>
+      <button class="btn btn-primary btn-block" id="submitIdeaBtn">Enviar sugerencia</button>
+    </div>
+    <div class="section-title">Sugerencias de todos <span class="n" id="ideasCount"></span></div>
+    <div id="ideasList"></div>
+  `;
+  document.getElementById('submitIdeaBtn').onclick = async ()=>{
+    const input = document.getElementById('ideaInput');
+    const text = input.value.trim();
+    if(!text){ alert('Escribe tu idea primero.'); return; }
+    const similar = findSimilarIdea(text);
+    if(similar && !similar._dupConfirmed){
+      const proceed = confirm(`Ya existe una idea parecida:\n\n"${similar.text}"\n\n¿Quieres votarla en vez de crear una nueva? (Aceptar = votar la existente, Cancelar = crear la mía de todas formas)`);
+      if(proceed){ await toggleIdeaVote(similar.id); input.value=''; return; }
+    }
+    const btn = document.getElementById('submitIdeaBtn'); btn.disabled = true; btn.textContent = 'Enviando...';
+    try{
+      await submitIdea(text);
+      input.value = '';
+      renderIdeasList(c);
+    }catch(e){ console.error(e); alert('No se pudo enviar. Revisa tu conexión.'); }
+    btn.disabled = false; btn.textContent = 'Enviar sugerencia';
+  };
+  renderIdeasList(c);
+}
+function renderIdeasList(c){
+  if(!c) return;
+  const listEl = document.getElementById('ideasList');
+  const countEl = document.getElementById('ideasCount');
+  if(!listEl) return;
+  if(state.ideas === null || state.ideas === undefined){
+    listEl.innerHTML = `<div class="empty" style="padding:16px;">Cargando sugerencias...</div>`;
+    fetchIdeas();
+    return;
+  }
+  if(countEl) countEl.textContent = '('+state.ideas.length+')';
+  if(state.ideas.length===0){
+    listEl.innerHTML = `<div class="empty-cta">Nadie ha propuesto ideas todavía. ¡Sé el primero!</div>`;
+    return;
+  }
+  const sorted = [...state.ideas].sort((a,b)=>{
+    const implA = a.status==='implementada' ? 1 : 0;
+    const implB = b.status==='implementada' ? 1 : 0;
+    if(implA!==implB) return implA-implB;
+    return (b.votes||[]).length - (a.votes||[]).length;
+  });
+  listEl.innerHTML = '';
+  sorted.forEach(idea=>{
+    const votes = idea.votes || [];
+    const hasVoted = currentUser && votes.includes(currentUser.uid);
+    const isMine = currentUser && idea.authorUid===currentUser.uid;
+    const isImplemented = idea.status==='implementada';
+    const card = document.createElement('div');
+    card.className = 'hist-card';
+    card.style.opacity = isImplemented ? '0.7' : '1';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="flex:1;">
+          ${isImplemented ? `<span class="badge-last" style="margin-bottom:6px;display:inline-block;">✅ Implementada</span>` : ''}
+          <div style="font-size:13.5px;line-height:1.5;">${idea.text}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">por ${idea.authorName || 'Usuario'} · ${new Date(idea.createdAt).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}</div>
+        </div>
+        <button data-vote style="background:${hasVoted?'var(--accent-soft)':'var(--panel-2)'};border:1px solid ${hasVoted?'var(--accent-dim)':'var(--line)'};border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text);text-align:center;min-width:44px;">
+          <div style="font-size:14px;">👍</div><div style="font-size:11px;font-weight:700;">${votes.length}</div>
+        </button>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:8px;">
+        <button data-impl style="background:none;border:none;color:${isImplemented?'var(--text-dim)':'var(--accent)'};font-size:11px;cursor:pointer;padding:0;">${isImplemented?'↩️ Marcar como pendiente':'✅ Marcar como implementada'}</button>
+        ${isMine ? `<button data-del style="background:none;border:none;color:var(--danger);font-size:11px;cursor:pointer;padding:0;">Eliminar</button>` : ''}
+      </div>
+    `;
+    card.querySelector('[data-vote]').onclick = ()=> toggleIdeaVote(idea.id);
+    card.querySelector('[data-impl]').onclick = ()=> toggleIdeaImplemented(idea.id);
+    if(isMine) card.querySelector('[data-del]').onclick = ()=> deleteIdea(idea.id);
+    listEl.appendChild(card);
+  });
 }
 
 /* ============ INIT ============ */
