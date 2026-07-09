@@ -303,10 +303,13 @@
         </div>
       </div>
 
-      <label class="login-field-label">Usuario</label>
-      <input class="name-input" id="loginUser" placeholder="ej: tu_usuario" autocapitalize="none" autocorrect="off" style="margin-bottom:14px;">
+      <label class="login-field-label">Correo electrónico</label>
+      <input class="name-input" id="loginUser" type="email" placeholder="tu@correo.com" autocapitalize="none" autocorrect="off" style="margin-bottom:14px;">
       <label class="login-field-label">Contraseña</label>
       <input class="name-input" id="loginPass" type="password" placeholder="••••••••" style="margin-bottom:0;">
+      <div id="forgotPasswordWrap" style="text-align:right;margin-top:6px;">
+        <a id="forgotPasswordLink" style="color:var(--text-dim);font-size:11.5px;cursor:pointer;text-decoration:underline;">¿Olvidaste tu contraseña?</a>
+      </div>
 
       <div id="registerExtra2" style="display:none;">
         <label class="login-field-label" style="margin-top:14px;">Repetir contraseña</label>
@@ -354,6 +357,10 @@
 
         <label class="login-field-label">Crea tu avatar</label>
         <div id="regAvatarBuilder" style="margin-bottom:6px;"></div>
+
+        <div style="background:var(--accent-soft);border:1px solid var(--accent-dim);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:var(--text-dim);">
+          🔒 Tu progreso es privado por defecto. Solo tú lo ves, salvo que agregues a alguien como compañero de entrenamiento (con un código que tú compartes).
+        </div>
 
         <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-dim);margin-bottom:16px;cursor:pointer;">
           <input type="checkbox" id="regTerms" style="margin-top:2px;">
@@ -456,6 +463,14 @@
       <div>
         <p class="guide-step-title">Tu cuenta es privada</p>
         <p class="guide-step-text">Nadie más puede ver tu progreso. Si compartes esta app con otras personas, cada una debe crear su propia cuenta.</p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-icon">📱</div>
+      <div>
+        <p class="guide-step-title">Funciona en iPhone y Android</p>
+        <p class="guide-step-text">Abre este mismo link en Safari (iPhone) o Chrome (Android) y usa "Agregar a pantalla de inicio" para tener un ícono como cualquier app.</p>
       </div>
     </div>
 
@@ -1090,6 +1105,7 @@ function rebindLoginToggle(){
     const isRegister = loginMode==='register';
     document.getElementById('registerExtra').style.display = isRegister ? 'block' : 'none';
     document.getElementById('registerExtra2').style.display = isRegister ? 'block' : 'none';
+    document.getElementById('forgotPasswordWrap').style.display = isRegister ? 'none' : 'block';
     document.getElementById('loginSubmitBtn').textContent = isRegister ? 'Crear cuenta' : 'Entrar';
     document.getElementById('loginSubText').textContent = isRegister ? 'Cuéntanos un poco de ti para empezar.' : 'Tu progreso, tus reglas.';
     document.getElementById('loginToggleText').innerHTML = isRegister
@@ -1105,10 +1121,11 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
   hideLoginError();
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
-  if(!user || !pass){ showLoginError('Completa usuario y contraseña.'); return; }
+  if(!user || !pass){ showLoginError('Completa correo y contraseña.'); return; }
 
   let regData = null;
   if(loginMode==='register'){
+    if(!user.includes('@') || !user.includes('.')){ showLoginError('Ingresa un correo electrónico válido (necesario para poder recuperar tu contraseña si la olvidas).'); return; }
     const nombre = document.getElementById('regNombre').value.trim();
     const apellido = document.getElementById('regApellido').value.trim();
     const pass2 = document.getElementById('regPass2').value;
@@ -1134,7 +1151,9 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
     };
   }
 
-  const email = usernameToEmail(user);
+  // Cuentas nuevas usan el correo real tal cual. Cuentas antiguas (creadas con "usuario") siguen
+  // entrando igual gracias a esta conversión de respaldo, solo para el modo de inicio de sesión.
+  const email = user.includes('@') ? user.toLowerCase() : usernameToEmail(user);
   const btn = document.getElementById('loginSubmitBtn');
   btn.disabled = true; btn.textContent = 'Cargando...';
   try{
@@ -1150,6 +1169,23 @@ document.getElementById('loginSubmitBtn').onclick = async ()=>{
     showLoginError(translateAuthError(err.code));
   }
   btn.disabled = false; btn.textContent = loginMode==='login' ? 'Entrar' : 'Crear cuenta';
+};
+
+document.getElementById('forgotPasswordLink').onclick = async ()=>{
+  hideLoginError();
+  const typed = document.getElementById('loginUser').value.trim();
+  const email = typed && typed.includes('@') ? typed : prompt('Ingresa el correo electrónico con el que te registraste:');
+  if(!email) return;
+  try{
+    await auth.sendPasswordResetEmail(email.trim());
+    alert('Listo. Si ese correo tiene una cuenta registrada, te llegará un email para restablecer tu contraseña (revisa también spam).');
+  }catch(err){
+    if(err.code==='auth/invalid-email'){
+      alert('Ese correo no es válido, o tu cuenta fue creada antes de que existiera esta función y no tiene un correo real asociado. Si es tu caso, contacta a quien administra la app para que te ayude a crear una cuenta nueva.');
+    } else {
+      alert('No se pudo enviar el correo de recuperación. Intenta de nuevo más tarde.');
+    }
+  }
 };
 
 document.getElementById('logoutBtn').onclick = async ()=>{
@@ -1178,6 +1214,7 @@ auth.onAuthStateChanged(async (user)=>{
     await loadData();
     await fetchCustomExercises();
     applyTheme(appData.theme || 'dark');
+    applyFontSize(appData.fontSize || 'normal');
     setupPartnerNotifications();
     const p = appData.profile;
     const avatarEl = document.getElementById('userAvatar');
@@ -1544,15 +1581,16 @@ function generateComebackRoutine(){
 }
 
 /* ============ REGISTRO DE CARRERA (RUNNING) ============ */
-async function logCardioSession(distanceKm, durationMin, note){
+async function logCardioSession(distanceKm, durationMin, note, splits){
   const pace = distanceKm>0 ? (durationMin/distanceKm) : 0;
-  const entry = { date:new Date().toISOString(), distanceKm, durationMin, paceMinKm: Math.round(pace*100)/100, note: note||'' };
+  const entry = { date:new Date().toISOString(), distanceKm, durationMin, paceMinKm: Math.round(pace*100)/100, note: note||'', splits: splits||[] };
   appData.cardioLog.unshift(entry);
   if(appData.cardioLog.length>300) appData.cardioLog = appData.cardioLog.slice(0,300);
   const paceStr = pace>0 ? `${Math.floor(pace)}:${String(Math.round((pace%1)*60)).padStart(2,'0')} min/km` : '';
+  const splitsNote = splits && splits.length ? ` · Splits: ${splits.map((s,i)=>`km${i+1}: ${s}min`).join(', ')}` : '';
   appData.history.unshift({
     id:'h'+Date.now(), name:`Carrera · ${distanceKm} km`, date: entry.date,
-    note: note || (paceStr ? `Ritmo: ${paceStr}` : ''), exercises: []
+    note: (note || (paceStr ? `Ritmo: ${paceStr}` : '')) + splitsNote, exercises: []
   });
   if(appData.history.length>200) appData.history = appData.history.slice(0,200);
   await saveData();
@@ -1602,6 +1640,9 @@ function applyTheme(theme){
   document.documentElement.setAttribute('data-theme', theme);
   const btn = document.getElementById('themeBtn');
   if(btn) btn.textContent = theme==='light' ? '☀️' : '🌙';
+}
+function applyFontSize(size){
+  document.body.style.fontSize = size==='grande' ? '117%' : '100%';
 }
 document.getElementById('themeBtn').onclick = async ()=>{
   const current = appData.theme === 'light' ? 'dark' : 'light';
@@ -2167,31 +2208,41 @@ function updateRestTimerBar(){
   const pct = restTimer.total ? (restTimer.remaining/restTimer.total*100) : 0;
   document.getElementById('restTimerFill').style.width = Math.max(0,pct)+'%';
 }
+function recalcRestTimer(){
+  if(!restTimer.active || !restTimer.endTime) return;
+  const remaining = Math.max(0, Math.round((restTimer.endTime - Date.now())/1000));
+  restTimer.remaining = remaining;
+  if(remaining<=0){
+    if(restTimer.intervalId){ clearInterval(restTimer.intervalId); restTimer.intervalId=null; }
+    restTimer.active = false;
+    updateRestTimerBar();
+    beep();
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    return;
+  }
+  updateRestTimerBar();
+}
 function startRestTimer(seconds){
   if(restTimer.intervalId) clearInterval(restTimer.intervalId);
   restTimer.total = seconds; restTimer.remaining = seconds; restTimer.active = true;
+  restTimer.endTime = Date.now() + seconds*1000; // tiempo real de término, no depende de que el navegador siga "contando" en segundo plano
   updateRestTimerBar();
-  restTimer.intervalId = setInterval(()=>{
-    restTimer.remaining--;
-    if(restTimer.remaining<=0){
-      clearInterval(restTimer.intervalId); restTimer.intervalId=null; restTimer.active=false;
-      updateRestTimerBar(); beep();
-      if(navigator.vibrate) navigator.vibrate([200,100,200]);
-      return;
-    }
-    updateRestTimerBar();
-  },1000);
+  restTimer.intervalId = setInterval(recalcRestTimer, 1000);
 }
 function stopRestTimer(){
   if(restTimer.intervalId) clearInterval(restTimer.intervalId);
-  restTimer.intervalId=null; restTimer.active=false; updateRestTimerBar();
+  restTimer.intervalId=null; restTimer.active=false; restTimer.endTime=null; updateRestTimerBar();
 }
 function adjustRestTimer(delta){
   if(!restTimer.active) return;
   restTimer.remaining = Math.max(0, restTimer.remaining+delta);
+  restTimer.endTime = Date.now() + restTimer.remaining*1000;
   if(restTimer.remaining>restTimer.total) restTimer.total = restTimer.remaining;
   updateRestTimerBar();
 }
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') recalcRestTimer();
+});
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('rtMinus').onclick = ()=>adjustRestTimer(-15);
   document.getElementById('rtPlus').onclick = ()=>adjustRestTimer(15);
@@ -2576,6 +2627,8 @@ function renderRutinasList(c){
         <div style="flex:1;"><label class="login-field-label">Tiempo (min)</label><input class="set-input" type="number" step="0.1" min="0" id="cardioDur" placeholder="30"></div>
       </div>
       <div id="cardioPacePreview" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;"></div>
+      <label class="login-field-label">Splits por km (opcional, un tiempo en min por línea)</label>
+      <textarea id="cardioSplits" placeholder="5.2&#10;5.4&#10;5.9&#10;5.6&#10;5.3" style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;min-height:60px;margin-bottom:10px;font-family:inherit;"></textarea>
       <input class="name-input" id="cardioNote" placeholder="Nota (opcional): terreno, sensación..." style="margin-bottom:10px;">
       <button class="btn btn-primary btn-block" id="saveCardioBtn">Guardar carrera</button>
       <div id="cardioRecent" style="margin-top:12px;"></div>
@@ -2645,14 +2698,16 @@ function renderRutinasList(c){
     document.getElementById('saveCardioBtn').onclick = async ()=>{
       const d = Number(distEl.value), t = Number(durEl.value);
       if(!d || !t){ alert('Ingresa distancia y tiempo válidos.'); return; }
+      const splitsRaw = document.getElementById('cardioSplits').value.trim();
+      const splits = splitsRaw ? splitsRaw.split('\n').map(s=>Number(s.trim())).filter(n=>n>0) : [];
       const btn = document.getElementById('saveCardioBtn'); btn.disabled=true; btn.textContent='Guardando...';
-      await logCardioSession(d, t, document.getElementById('cardioNote').value.trim());
+      await logCardioSession(d, t, document.getElementById('cardioNote').value.trim(), splits);
       renderRutinasList(c);
     };
     const recentBox = document.getElementById('cardioRecent');
     if(appData.cardioLog.length>0){
       recentBox.innerHTML = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Últimas carreras:</div>' +
-        appData.cardioLog.slice(0,5).map(r=>`<div class="hist-ex"><span>${new Date(r.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})} · ${r.distanceKm} km</span><span>${r.paceMinKm} min/km</span></div>`).join('');
+        appData.cardioLog.slice(0,5).map(r=>`<div class="hist-ex"><span>${new Date(r.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})} · ${r.distanceKm} km${r.splits&&r.splits.length?` (${r.splits.length} splits)`:''}</span><span>${r.paceMinKm} min/km</span></div>`).join('');
     }
   }
 
@@ -3161,6 +3216,7 @@ function renderWorkout(c){
     </div>
     <div class="chart-card" id="warmupCard" style="border-color:var(--tag-lower);background:rgba(224,164,88,0.06);"></div>
     <div id="wexList"></div>
+    <button class="btn btn-ghost btn-block" id="addExerciseToWorkoutBtn" style="margin-bottom:14px;">+ Agregar ejercicio a esta rutina</button>
     <div class="chart-card" style="margin-top:4px;">
       <label class="login-field-label">Nota de la sesión (opcional)</label>
       <textarea id="sessionNote" placeholder="¿Cómo te sentiste? ¿Algún dolor o molestia?" style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;min-height:60px;resize:vertical;font-family:inherit;">${state.rutinas.sessionNote||''}</textarea>
@@ -3171,6 +3227,7 @@ function renderWorkout(c){
     </div>`;
 
   document.getElementById('sessionNote').oninput = (e)=>{ state.rutinas.sessionNote = e.target.value; };
+  document.getElementById('addExerciseToWorkoutBtn').onclick = ()=> openAddExerciseToWorkoutModal(session, c);
   renderWarmupCard(session);
   document.getElementById('unitToggle').querySelectorAll('.unit-btn').forEach(b=>{
     b.onclick = async ()=>{ appData.unit = b.dataset.u; await saveData(); renderWorkout(c); };
@@ -3268,6 +3325,64 @@ function renderWorkout(c){
     list.appendChild(box);
   });
 }
+function openAddExerciseToWorkoutModal(session, c){
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
+  modal.innerHTML = `
+    <div class="guide-card">
+      <div class="guide-title">+ Agregar ejercicio</div>
+      <p class="guide-sub">Se suma a tu rutina de hoy, sin salir del entrenamiento.</p>
+      <input class="searchbox" id="addExSearch" placeholder="Buscar ejercicio..." style="margin-bottom:12px;">
+      <div class="filters" id="addExFilters" style="margin-bottom:10px;"></div>
+      <div id="addExList" style="max-height:50vh;overflow-y:auto;"></div>
+      <button class="btn btn-ghost btn-block" id="addExCancelBtn" style="margin-top:10px;">Cerrar</button>
+    </div>`;
+  document.body.appendChild(modal);
+
+  let groupFilter = 'todos';
+  let term = '';
+
+  const filtersEl = modal.querySelector('#addExFilters');
+  GROUPS.forEach(g=>{
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (groupFilter===g.key?' active':'');
+    btn.textContent = g.label;
+    btn.onclick = ()=>{ groupFilter = g.key; renderList(); refreshFilterButtons(); };
+    filtersEl.appendChild(btn);
+  });
+  function refreshFilterButtons(){
+    filtersEl.querySelectorAll('.filter-btn').forEach((btn,i)=> btn.classList.toggle('active', GROUPS[i].key===groupFilter));
+  }
+  modal.querySelector('#addExSearch').oninput = (e)=>{ term = e.target.value.toLowerCase(); renderList(); };
+
+  function renderList(){
+    const listEl = modal.querySelector('#addExList');
+    const filtered = allExercises().filter(e=>
+      (groupFilter==='todos' || e.group===groupFilter) &&
+      (!term || e.name.toLowerCase().includes(term))
+    );
+    listEl.innerHTML = '';
+    if(filtered.length===0){
+      listEl.innerHTML = `<div class="empty" style="padding:12px;">Sin resultados.</div>`;
+      return;
+    }
+    filtered.forEach(ex=>{
+      const row = document.createElement('div');
+      row.className = 'pick-card';
+      row.style.marginBottom = '8px';
+      row.innerHTML = `<div class="pick-info"><div class="pick-name">${ex.name}</div><div class="meta-row" style="margin-top:5px;"><span class="tag tag-${ex.group}">${LABELS[ex.group]}</span><span class="level">${effSets(ex)}x${effReps(ex)}</span></div></div>`;
+      row.onclick = ()=>{
+        session.exercises.push({ kind:'single', id: ex.id, sets: buildSets(ex.id) });
+        modal.remove();
+        renderWorkout(c);
+      };
+      listEl.appendChild(row);
+    });
+  }
+  renderList();
+  modal.querySelector('#addExCancelBtn').onclick = ()=> modal.remove();
+}
+
 function openSwapModal(currentExId, onPick){
   const currentEx = findEx(currentExId);
   const variants = getVariants(currentExId, 6);
@@ -3436,7 +3551,7 @@ function renderProgreso(c){
 
     <div class="section-title">Compañero de entrenamiento</div>
     <div class="chart-card">
-      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Comparte tu código para entrenar junto a alguien y comparar su progreso con el tuyo.</p>
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Comparte tu código para entrenar junto a alguien y comparar su progreso con el tuyo. <b>Importante:</b> agregar el código de alguien solo hace que tú lo veas a él/ella. Para que se vean mutuamente, esa persona también debe ingresar tu código por su lado.</p>
       <div style="display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--accent-dim);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
         <span style="font-size:11px;color:var(--text-dim);flex:1;">Tu código de invitación</span>
         <span style="font-size:16px;font-weight:800;color:var(--accent);letter-spacing:1px;">${myInviteCode()}</span>
@@ -3517,7 +3632,7 @@ function renderProgreso(c){
     btn.disabled = true; btn.textContent = '...';
     const res = await addPartnerByCode(input.value);
     btn.disabled = false; btn.textContent = 'Agregar';
-    if(res.ok){ input.value=''; renderPartnersSection(); setupPartnerNotifications(); }
+    if(res.ok){ input.value=''; renderPartnersSection(); setupPartnerNotifications(); alert('¡Agregado! Recuerda: para que ustedes dos se vean mutuamente, esa persona también debe ingresar tu código de invitación desde su cuenta.'); }
     else alert(res.msg);
   };
   if(exercisesWithData.length===0){
@@ -3640,10 +3755,22 @@ function renderPerfil(c){
         <span style="font-size:13px;">Tema de la app</span>
         <button class="btn btn-ghost btn-sm" id="perfilThemeBtn">${(appData.theme||'dark')==='light' ? '☀️ Claro' : '🌙 Oscuro'}</button>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:13px;">Tamaño de letra</span>
+        <div class="unit-toggle" id="perfilFontToggle">
+          <button class="unit-btn ${(appData.fontSize||'normal')==='normal'?'active':''}" data-f="normal">Normal</button>
+          <button class="unit-btn ${appData.fontSize==='grande'?'active':''}" data-f="grande">Grande</button>
+        </div>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:13px;">¿No entiendes algún término?</span>
         <button class="btn btn-ghost btn-sm" id="perfilGlossaryBtn">📖 Glosario</button>
       </div>
+    </div>
+
+    <div class="chart-card" style="font-size:11.5px;color:var(--text-dim);">
+      🔒 Tu progreso es privado — solo tú lo ves, salvo las personas que agregues como compañero de entrenamiento con tu código.<br>
+      📱 Esta app funciona igual en iPhone y en Android: solo necesitas abrir este mismo link en Chrome o Safari y "Agregar a pantalla de inicio".
     </div>
 
     <div class="section-title">Respaldo de tus datos</div>
@@ -3684,6 +3811,9 @@ function renderPerfil(c){
     await saveData();
     renderPerfil(c);
   };
+  document.getElementById('perfilFontToggle').querySelectorAll('.unit-btn').forEach(b=>{
+    b.onclick = async ()=>{ appData.fontSize = b.dataset.f; applyFontSize(appData.fontSize); await saveData(); renderPerfil(c); };
+  });
   document.getElementById('exportBtn').onclick = ()=>exportBackup();
   document.getElementById('importBtn').onclick = ()=>document.getElementById('importFile').click();
   document.getElementById('importFile').onchange = (e)=>{
