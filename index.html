@@ -480,8 +480,16 @@
 
 <script>
 /* ============ DATA ============ */
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.6.0";
 const CHANGELOG = [
+  { version:"1.6.0", items:[
+    "Compañero de entrenamiento ahora es automático y mutuo: ya no necesitan agregarse los dos por separado.",
+    "Pestaña Nutrición activada (ya existía el registro, faltaba el acceso).",
+    "Historial: íconos para distinguir de un vistazo carreras, WOD y rutinas de fuerza.",
+    "Reglas de la base de datos reforzadas para que nadie pueda editar rutinas, ideas o publicaciones ajenas.",
+    "Corrección de seguridad: nombres, notas y textos de otros usuarios ya no pueden inyectar código en tu sesión.",
+    "Evita registros duplicados si tocas dos veces seguidas 'Finalizar rutina', 'Guardar rutina' u otros botones de guardado.",
+  ]},
   { version:"1.5.0", items:[
     "Nueva pestaña Perfil: avatar, datos, deporte y preferencias en un solo lugar.",
     "Arreglo importante: la app ya no se queda cargando con mala señal.",
@@ -912,6 +920,19 @@ try{
   });
 }catch(e){ console.warn('No se pudo activar persistencia offline', e); }
 let currentUser = null;
+let partnerLinkIds = {}; // uid del compañero -> id del doc en partnerLinks
+
+// Escapa texto de usuario antes de insertarlo en innerHTML (nombres, notas, ideas, etc.
+// llegan de otros usuarios vía Firestore y no deben poder inyectar HTML/JS).
+function escapeHtml(str){
+  if(str===null || str===undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
 
 function usernameToEmail(u){
   return u.trim().toLowerCase().replace(/[^a-z0-9]/g,'') + '@mientrenador.local';
@@ -1213,6 +1234,7 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('appRoot').style.display = 'block';
     await loadData();
     await fetchCustomExercises();
+    await fetchPartnerLinks();
     applyTheme(appData.theme || 'dark');
     applyFontSize(appData.fontSize || 'normal');
     setupPartnerNotifications();
@@ -1282,7 +1304,7 @@ document.getElementById('notifBtn').onclick = ()=>{
     <div class="guide-card">
       <div class="guide-title">🔔 Actividad de compañeros</div>
       <p class="guide-sub">${partnerActivityUnread.length>0 ? 'Lo que hicieron tus compañeros desde tu última visita.' : 'No tienes notificaciones nuevas. Agrega compañeros en Progreso para recibir avisos cuando entrenen.'}</p>
-      ${partnerActivityUnread.map(a=>`<div class="hist-card"><div class="hist-title" style="font-size:13px;">${a.name} completó "${a.routineName}"</div><div class="hist-date">${new Date(a.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}
+      ${partnerActivityUnread.map(a=>`<div class="hist-card"><div class="hist-title" style="font-size:13px;">${escapeHtml(a.name)} completó "${escapeHtml(a.routineName)}"</div><div class="hist-date">${new Date(a.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}
       <button class="btn btn-primary btn-block" id="notifCloseBtn" style="margin-top:10px;">Cerrar</button>
     </div>`;
   document.body.appendChild(modal);
@@ -1339,6 +1361,7 @@ function showChangelogModal(){
     await saveData();
   };
 }
+document.getElementById('versionBadge').textContent = 'v'+APP_VERSION;
 document.getElementById('versionBadge').onclick = ()=> showChangelogModal();
 
 document.getElementById('helpBtn').onclick = ()=>{
@@ -1862,7 +1885,7 @@ function renderLeaderboardSection(){
     const row = document.createElement('div'); row.className='pr-row';
     const isMe = currentUser && u.id===currentUser.uid;
     row.style.borderColor = isMe ? 'var(--accent-dim)' : '';
-    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="lb-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">🔥 ${u.streak}</span>`;
+    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="lb-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${escapeHtml(u.name)}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">🔥 ${u.streak}</span>`;
     box.appendChild(row);
     setAvatarElement(row.querySelector(`#lb-av-${u.id}`), u, 24, (u.name||'U')[0].toUpperCase());
   });
@@ -1913,7 +1936,7 @@ function renderMonthlySection(){
     const row = document.createElement('div'); row.className='pr-row';
     const isMe = currentUser && u.id===currentUser.uid;
     row.style.borderColor = isMe ? 'var(--accent-dim)' : '';
-    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="mc-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u.count} rutinas</span>`;
+    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="mc-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${escapeHtml(u.name)}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u.count} rutinas</span>`;
     box.appendChild(row);
     setAvatarElement(row.querySelector(`#mc-av-${u.id}`), u, 24, (u.name||'U')[0].toUpperCase());
   });
@@ -1965,7 +1988,7 @@ function renderSportRankSection(){
     const row = document.createElement('div'); row.className='pr-row';
     const isMe = currentUser && u.id===currentUser.uid;
     row.style.borderColor = isMe ? 'var(--accent-dim)' : '';
-    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="sr-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${u.name}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u[metric.key]} ${metric.unit}</span>`;
+    row.innerHTML = `<span class="pr-name" style="display:flex;align-items:center;gap:8px;"><span style="width:20px;text-align:center;">${medals[i]||('#'+(i+1))}</span><span class="user-avatar" id="sr-av-${u.id}" style="width:24px;height:24px;font-size:9px;"></span> ${escapeHtml(u.name)}${isMe?' (tú)':''}</span><span class="pr-value" style="color:var(--accent);">${u[metric.key]} ${metric.unit}</span>`;
     box.appendChild(row);
     setAvatarElement(row.querySelector(`#sr-av-${u.id}`), u, 24, (u.name||'U')[0].toUpperCase());
   });
@@ -1975,6 +1998,22 @@ function renderSportRankSection(){
 function myInviteCode(){
   return currentUser ? currentUser.uid.slice(0,8).toUpperCase() : '';
 }
+// La conexión vive en la colección compartida partnerLinks (no en el documento
+// privado de cada usuario), porque un usuario no tiene permiso para escribir en
+// el documento de otro. Cada doc {uids:[a,b]} conecta a ambos automáticamente.
+async function fetchPartnerLinks(){
+  appData.partners = [];
+  partnerLinkIds = {};
+  if(!currentUser) return;
+  try{
+    const snap = await db.collection('partnerLinks').where('uids','array-contains', currentUser.uid).get();
+    snap.forEach(doc=>{
+      const uids = doc.data().uids || [];
+      const otherUid = uids.find(u=>u!==currentUser.uid);
+      if(otherUid){ appData.partners.push(otherUid); partnerLinkIds[otherUid] = doc.id; }
+    });
+  }catch(e){ console.error('Error cargando compañeros', e); }
+}
 async function addPartnerByCode(code){
   code = code.trim().toUpperCase();
   if(!code) return {ok:false, msg:'Ingresa un código.'};
@@ -1983,9 +2022,11 @@ async function addPartnerByCode(code){
     const snap = await db.collection('members').limit(200).get();
     const match = snap.docs.find(d=> d.id.slice(0,8).toUpperCase() === code);
     if(!match) return {ok:false, msg:'No se encontró a nadie con ese código.'};
+    if(appData.partners.length>=20) return {ok:false, msg:'Ya tienes 20 compañeros, el máximo soportado. Quita alguno para agregar uno nuevo.'};
     if(!appData.partners.includes(match.id)){
+      const ref = await db.collection('partnerLinks').add({ uids: [currentUser.uid, match.id], createdAt: new Date().toISOString() });
       appData.partners.push(match.id);
-      await saveData();
+      partnerLinkIds[match.id] = ref.id;
     }
     return {ok:true};
   }catch(e){
@@ -1994,8 +2035,11 @@ async function addPartnerByCode(code){
   }
 }
 async function removePartner(uid){
+  const linkId = partnerLinkIds[uid];
+  try{ if(linkId) await db.collection('partnerLinks').doc(linkId).delete(); }
+  catch(e){ console.error('Error eliminando compañero', e); }
   appData.partners = appData.partners.filter(id=>id!==uid);
-  await saveData();
+  delete partnerLinkIds[uid];
   renderPartnersSection();
   setupPartnerNotifications();
 }
@@ -2032,7 +2076,7 @@ async function renderPartnersSection(){
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div class="user-avatar" id="partner-av-${p.uid}" style="width:36px;height:36px;"></div>
-        <div style="flex:1;font-size:13.5px;font-weight:700;">${p.name}</div>
+        <div style="flex:1;font-size:13.5px;font-weight:700;">${escapeHtml(p.name)}</div>
         <button class="btn-danger" data-remove="${p.uid}" style="border:none;background:none;cursor:pointer;font-size:12px;">Quitar</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
@@ -2080,7 +2124,7 @@ function renderMembersSection(){
     row.innerHTML = `
       <div class="user-avatar" id="member-av-${m.id}"></div>
       <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;">${m.name}${isMe?' (tú)':''}</div>
+        <div style="font-size:13px;font-weight:600;">${escapeHtml(m.name)}${isMe?' (tú)':''}</div>
         <div style="font-size:11px;color:var(--text-dim);">Se unió el ${joinedStr}</div>
       </div>`;
     box.appendChild(row);
@@ -2151,7 +2195,7 @@ function renderActivitySection(){
       return `<button data-emoji="${emoji}" class="btn-sm" style="background:${active?'var(--accent-soft)':'var(--panel-2)'};border:1px solid ${active?'var(--accent-dim)':'var(--line)'};border-radius:8px;color:var(--text);cursor:pointer;padding:4px 9px;font-size:12px;margin-right:6px;">${emoji} ${arr.length||''}</button>`;
     }).join('');
     card.innerHTML = `
-      <div class="hist-top"><div class="hist-title">${post.name} completó "${post.routineName}"</div><div class="hist-date">${dateStr}</div></div>
+      <div class="hist-top"><div class="hist-title">${escapeHtml(post.name)} completó "${escapeHtml(post.routineName)}"</div><div class="hist-date">${dateStr}</div></div>
       <div style="margin-top:10px;">${reactionsHtml}</div>`;
     REACTION_EMOJIS.forEach(emoji=>{
       card.querySelector(`[data-emoji="${emoji}"]`).onclick = ()=>toggleReaction(post.id, emoji);
@@ -2258,6 +2302,7 @@ function renderTabs(){
     {key:"rutinas", label:"Rutinas"},
     {key:"historial", label:"Historial"},
     {key:"progreso", label:"Progreso"},
+    {key:"nutricion", label:"Nutrición"},
     {key:"ideas", label:"Ideas"},
   ];
   tabsEl.innerHTML = "";
@@ -2286,6 +2331,7 @@ function render(){
   }
   else if(state.tab==='historial'){ sub.textContent = "Tus rutinas completadas."; renderHistorial(c); }
   else if(state.tab==='progreso'){ sub.textContent = "Récords, racha, gráficos y peso corporal."; renderProgreso(c); }
+  else if(state.tab==='nutricion'){ sub.textContent = "Registro simple de tus comidas."; renderNutricion(c); }
   else if(state.tab==='ideas'){ sub.textContent = "Propón y vota mejoras para la app."; renderIdeas(c); }
 }
 
@@ -2327,11 +2373,11 @@ function renderPoolGrid(){
     const pr = prForExercise(item.id);
     const prBadge = pr ? `PR: ${item.isTime ? pr.reps+'s' : (Number(pr.weight)>0 ? pr.weight+appData.unit+' x '+pr.reps : pr.reps+' reps')}` : null;
     card.innerHTML = `
-      <div class="card-top"><div class="card-title">${item.isCustom?'⭐ ':''}${item.name}</div><div class="chevron">▶</div></div>
+      <div class="card-top"><div class="card-title">${item.isCustom?'⭐ ':''}${escapeHtml(item.name)}</div><div class="chevron">▶</div></div>
       <div class="meta-row">
         <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
         <span class="level">${item.level}</span>
-        ${item.isCustom?`<span class="badge-last" style="color:var(--gold);background:rgba(224,184,74,0.14);">por ${item.authorName}</span>`:''}
+        ${item.isCustom?`<span class="badge-last" style="color:var(--gold);background:rgba(224,184,74,0.14);">por ${escapeHtml(item.authorName)}</span>`:''}
         ${lastBadge?`<span class="badge-last">${lastBadge}</span>`:''}
         ${prBadge?`<span class="badge-pr">🏆 ${prBadge}</span>`:''}
       </div>
@@ -2342,11 +2388,11 @@ function renderPoolGrid(){
           <div style="flex:1;"><label class="login-field-label">Reps</label><input class="set-input" type="text" id="ov-reps-${item.id}" value="${effReps(item)}"></div>
           <button class="btn btn-ghost btn-sm" id="ov-save-${item.id}">Guardar</button>
         </div>
-        <h4>Posición inicial</h4><p>${item.setup}</p>
-        <h4>Ejecución</h4><ul>${item.steps.map(s=>`<li>${s}</li>`).join('')}</ul>
-        <h4>Error común a evitar</h4><p class="last">${item.errors}</p>
+        <h4>Posición inicial</h4><p>${escapeHtml(item.setup)}</p>
+        <h4>Ejecución</h4><ul>${item.steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>
+        <h4>Error común a evitar</h4><p class="last">${escapeHtml(item.errors)}</p>
         <h4>Si no tienes esta máquina/equipo, prueba</h4>
-        <ul>${getVariants(item.id,4).map(v=>`<li>${v.name}</li>`).join('')}</ul>
+        <ul>${getVariants(item.id,4).map(v=>`<li>${escapeHtml(v.name)}</li>`).join('')}</ul>
         <a href="${youtubeSearchUrl(item.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn btn-ghost btn-sm" style="display:inline-block;text-decoration:none;margin-top:6px;">▶️ Ver videos de referencia</a>
       </div>`;
     card.onclick = ()=>{ st.open = (st.open===item.id)?null:item.id; renderPoolGrid(); };
@@ -2377,8 +2423,8 @@ function openCompleteProfileModal(){
       <div class="guide-title">${isEdit ? 'Editar mis datos' : 'Completa tu perfil'}</div>
       <p class="guide-sub">Estos datos aparecen en Miembros y Compañeros.</p>
       <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label class="login-field-label">Nombre</label><input class="name-input" id="cpNombre" value="${draft.nombre||''}" style="margin-bottom:14px;"></div>
-        <div style="flex:1;"><label class="login-field-label">Apellido</label><input class="name-input" id="cpApellido" value="${draft.apellido||''}" style="margin-bottom:14px;"></div>
+        <div style="flex:1;"><label class="login-field-label">Nombre</label><input class="name-input" id="cpNombre" value="${escapeHtml(draft.nombre||'')}" style="margin-bottom:14px;"></div>
+        <div style="flex:1;"><label class="login-field-label">Apellido</label><input class="name-input" id="cpApellido" value="${escapeHtml(draft.apellido||'')}" style="margin-bottom:14px;"></div>
       </div>
       <div style="display:flex;gap:10px;">
         <div style="flex:1;"><label class="login-field-label">Edad</label><input class="name-input" id="cpEdad" type="number" value="${draft.edad||''}" style="margin-bottom:14px;"></div>
@@ -2610,7 +2656,7 @@ function renderRutinasList(c){
     ${neglected.length>0 ? `
     <div class="chart-card" style="margin-top:10px;">
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;">📌 Ejercicios que llevas tiempo sin entrenar:</div>
-      ${neglected.map(n=>`<div style="font-size:12.5px;display:flex;justify-content:space-between;padding:4px 0;"><span>${n.ex.name}</span><span style="color:var(--tag-lower);font-weight:600;">hace ${n.days} días</span></div>`).join('')}
+      ${neglected.map(n=>`<div style="font-size:12.5px;display:flex;justify-content:space-between;padding:4px 0;"><span>${escapeHtml(n.ex.name)}</span><span style="color:var(--tag-lower);font-weight:600;">hace ${n.days} días</span></div>`).join('')}
     </div>` : ''}
 
     <input class="searchbox" id="routineSearch" placeholder="Buscar rutina (mías o de la comunidad)..." value="${(state.rutinas.routineSearch||'').replace(/"/g,'')}" style="margin:12px 0;">
@@ -2747,7 +2793,7 @@ function renderRutinasList(c){
     card.className = 'rcard';
     card.innerHTML = `
       <div class="rcard-top"><div><p class="rcard-title">${routine.name}</p><p class="rcard-sub">Ejercicios de rendimiento + fuerza base para tu deporte.</p></div></div>
-      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${ex.name}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${escapeHtml(ex.name)}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
@@ -2766,7 +2812,7 @@ function renderRutinasList(c){
     card.className = 'rcard';
     card.innerHTML = `
       <div class="rcard-top"><div><p class="rcard-title">${tier.title}</p><p class="rcard-sub">${tier.desc}</p></div></div>
-      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${ex.name}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${escapeHtml(ex.name)}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
@@ -2784,7 +2830,7 @@ function renderRutinasList(c){
     card.className = 'rcard';
     card.innerHTML = `
       <div class="rcard-top"><div><p class="rcard-title">${tpl.title}</p><p class="rcard-sub">${tpl.desc}</p></div></div>
-      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return `<li><span>${ex.name}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`;}).join('')}</ul>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return `<li><span>${escapeHtml(ex.name)}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`;}).join('')}</ul>
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
@@ -2815,7 +2861,7 @@ function renderCustomRoutinesGrid(){
   filtered.forEach(r=>{
       const card = document.createElement('div'); card.className='rcard';
       card.innerHTML = `
-        <div class="rcard-top"><div><p class="rcard-title">${r.name}</p><p class="rcard-sub">${r.exercises.length} ejercicios</p></div></div>
+        <div class="rcard-top"><div><p class="rcard-title">${escapeHtml(r.name)}</p><p class="rcard-sub">${r.exercises.length} ejercicios</p></div></div>
         <ul class="rcard-list">${renderRoutinePreviewList(r.exercises)}</ul>
         <div class="rcard-actions">
           <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
@@ -2909,7 +2955,7 @@ function renderCommunityRoutines(c){
     const card = document.createElement('div'); card.className='rcard';
     card.innerHTML = `
       <div class="rcard-top">
-        <div><p class="rcard-title">${r.name}</p><p class="rcard-sub">por ${r.authorName || 'Usuario'} · ${exCount} ejercicios ${uses>0?`· usada ${uses} veces`:''}</p></div>
+        <div><p class="rcard-title">${escapeHtml(r.name)}</p><p class="rcard-sub">por ${escapeHtml(r.authorName || 'Usuario')} · ${exCount} ejercicios ${uses>0?`· usada ${uses} veces`:''}</p></div>
         <button data-fav style="background:none;border:none;font-size:18px;cursor:pointer;color:${isFav?'var(--gold)':'var(--text-dim)'};">★</button>
       </div>
       <ul class="rcard-list">${renderRoutinePreviewList(validExercises)}</ul>
@@ -2951,13 +2997,13 @@ function renderRoutinePreviewList(exercises){
     if(isGroupItem(item)){
       const exs = item.group.map(id=>findEx(id)).filter(Boolean);
       if(exs.length===0) return '';
-      return `<li style="background:var(--accent-soft);"><span>⚡ ${exs.map(e=>e.name).join(' + ')}</span><span class="ex-sets">superserie</span></li>`;
+      return `<li style="background:var(--accent-soft);"><span>⚡ ${exs.map(e=>escapeHtml(e.name)).join(' + ')}</span><span class="ex-sets">superserie</span></li>`;
     }
     const ex = findEx(itemExId(item));
     if(!ex) return '';
     const setsCount = isCustomTargetItem(item) ? item.setsCount : effSets(ex);
     const repsTarget = isCustomTargetItem(item) ? item.repsTarget : effReps(ex);
-    return `<li><span>${ex.name}${isCustomTargetItem(item)?' <span style="color:var(--gold);">★</span>':''}</span><span class="ex-sets">${setsCount}x${repsTarget}</span></li>`;
+    return `<li><span>${escapeHtml(ex.name)}${isCustomTargetItem(item)?' <span style="color:var(--gold);">★</span>':''}</span><span class="ex-sets">${setsCount}x${repsTarget}</span></li>`;
   }).join('');
 }
 function cleanRoutineExercises(exercises){
@@ -2992,14 +3038,14 @@ function renderBuilder(c){
       <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">⚡ <b>Superseries (opcional):</b> selecciona 2-3 ejercicios de tu lista y agrúpalos para hacerlos seguidos, sin descanso entre ellos.</p>
       ${st.builderGroups.map((g,gi)=>`
         <div class="rcard-list" style="margin-bottom:8px;">
-          <li style="background:var(--accent-soft);"><span>⚡ ${g.ids.map(id=>findEx(id)?.name).join(' + ')}</span>
+          <li style="background:var(--accent-soft);"><span>⚡ ${g.ids.map(id=>findEx(id)).filter(Boolean).map(ex=>escapeHtml(ex.name)).join(' + ')}</span>
           <button data-ungroup="${gi}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:12px;">Deshacer</button></li>
         </div>`).join('')}
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
         ${ungroupedSelected.map(id=>{
           const ex = findEx(id);
           const checked = st.groupingTemp.includes(id);
-          return `<button data-chip="${id}" class="filter-btn ${checked?'active':''}">${ex.name}</button>`;
+          return `<button data-chip="${id}" class="filter-btn ${checked?'active':''}">${escapeHtml(ex.name)}</button>`;
         }).join('')}
       </div>
       <button class="btn btn-ghost btn-sm" id="groupBtn">Agrupar seleccionados en superserie</button>
@@ -3014,7 +3060,7 @@ function renderBuilder(c){
         const setsVal = custom ? custom.setsCount : effSets(ex);
         const repsVal = custom ? custom.repsTarget : effReps(ex);
         return `<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:8px;">
-          <div style="flex:2;font-size:12.5px;padding-bottom:9px;">${ex.name}</div>
+          <div style="flex:2;font-size:12.5px;padding-bottom:9px;">${escapeHtml(ex.name)}</div>
           <div style="flex:1;"><input class="set-input" type="number" min="1" max="10" id="ct-sets-${id}" value="${setsVal}"></div>
           <div style="flex:1;"><input class="set-input" type="text" id="ct-reps-${id}" value="${repsVal}"></div>
         </div>`;
@@ -3050,7 +3096,10 @@ function renderBuilder(c){
   }
 
   document.getElementById('saveRoutineBtn').onclick = async ()=>{
+    const saveRoutineBtn = document.getElementById('saveRoutineBtn');
+    if(saveRoutineBtn.disabled) return;
     if(st.builderSelected.length===0){ alert('Selecciona al menos un ejercicio.'); return; }
+    saveRoutineBtn.disabled = true; saveRoutineBtn.textContent = 'Guardando...';
     if(!st.builderCustomTargets) st.builderCustomTargets = {};
     ungroupedSelected.forEach(id=>{
       const setsInput = document.getElementById(`ct-sets-${id}`);
@@ -3106,7 +3155,7 @@ function renderBuilder(c){
     card.innerHTML = `
       <div class="check-circle ${selected?'checked':''}">${selected?'✓':''}</div>
       <div class="pick-info">
-        <div class="pick-name">${item.name}</div>
+        <div class="pick-name">${escapeHtml(item.name)}</div>
         <div class="meta-row" style="margin-top:5px;">
           <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
           <span class="level">${effSets(item)}x${effReps(item)}</span>
@@ -3206,7 +3255,7 @@ function renderWorkout(c){
   c.innerHTML = `
     <div class="workout-header">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-size:16px;font-weight:700;">${session.name}</div><div style="font-size:12px;color:var(--text-dim);">${pct}% completado</div></div>
+        <div><div style="font-size:16px;font-weight:700;">${escapeHtml(session.name)}</div><div style="font-size:12px;color:var(--text-dim);">${pct}% completado</div></div>
         <div class="unit-toggle" id="unitToggle">
           <button class="unit-btn ${appData.unit==='kg'?'active':''}" data-u="kg">KG</button>
           <button class="unit-btn ${appData.unit==='lb'?'active':''}" data-u="lb">LB</button>
@@ -3238,6 +3287,9 @@ function renderWorkout(c){
     }
   };
   document.getElementById('finishBtn').onclick = async ()=>{
+    const finishBtn = document.getElementById('finishBtn');
+    if(finishBtn.disabled) return;
+    finishBtn.disabled = true; finishBtn.textContent = 'Guardando...';
     const flatForHistory = [];
     session.exercises.forEach(item=>{
       const subs = item.kind==='superset' ? item.subs : [item];
@@ -3282,7 +3334,7 @@ function renderWorkout(c){
         const ex = findEx(sub.id);
         const subBox = document.createElement('div');
         subBox.style.cssText = 'border-top:1px solid var(--line);padding-top:10px;margin-top:10px;';
-        subBox.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px;">${ex.name} <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;font-weight:600;">▶️ Ver video</a> · <a id="swap-sub-${idx}-${subIdx}" style="color:var(--tag-lower);font-size:11px;font-weight:600;cursor:pointer;">🔄 Cambiar</a></div><div class="setsWrap"></div>`;
+        subBox.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(ex.name)} <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;font-weight:600;">▶️ Ver video</a> · <a id="swap-sub-${idx}-${subIdx}" style="color:var(--tag-lower);font-size:11px;font-weight:600;cursor:pointer;">🔄 Cambiar</a></div><div class="setsWrap"></div>`;
         const setsWrap = subBox.querySelector('.setsWrap');
         sub.sets.forEach((s, setIdx)=>{
           const row = buildSetRow(s, setIdx, ex, ()=>{ renderWorkout(c); }, false);
@@ -3307,7 +3359,7 @@ function renderWorkout(c){
     const lastBadge = fmtLast(ex.id, ex.isTime);
     box.innerHTML = `
       <div class="wex-top">
-        <div class="wex-name">${allDone?'<span class="wex-check">✓</span>':''}${ex.name}</div>
+        <div class="wex-name">${allDone?'<span class="wex-check">✓</span>':''}${escapeHtml(ex.name)}</div>
         <span class="tag tag-${ex.group}">${LABELS[ex.group]}</span>
       </div>
       <div class="wex-last">${lastBadge || 'Sin registros previos'} · <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);">▶️ Ver video</a> · <a id="swap-${item.id}-${idx}" style="color:var(--tag-lower);cursor:pointer;">🔄 Cambiar</a></div>
@@ -3370,7 +3422,7 @@ function openAddExerciseToWorkoutModal(session, c){
       const row = document.createElement('div');
       row.className = 'pick-card';
       row.style.marginBottom = '8px';
-      row.innerHTML = `<div class="pick-info"><div class="pick-name">${ex.name}</div><div class="meta-row" style="margin-top:5px;"><span class="tag tag-${ex.group}">${LABELS[ex.group]}</span><span class="level">${effSets(ex)}x${effReps(ex)}</span></div></div>`;
+      row.innerHTML = `<div class="pick-info"><div class="pick-name">${escapeHtml(ex.name)}</div><div class="meta-row" style="margin-top:5px;"><span class="tag tag-${ex.group}">${LABELS[ex.group]}</span><span class="level">${effSets(ex)}x${effReps(ex)}</span></div></div>`;
       row.onclick = ()=>{
         session.exercises.push({ kind:'single', id: ex.id, sets: buildSets(ex.id) });
         modal.remove();
@@ -3391,7 +3443,7 @@ function openSwapModal(currentExId, onPick){
   modal.innerHTML = `
     <div class="guide-card">
       <div class="guide-title">🔄 Cambiar ejercicio</div>
-      <p class="guide-sub">¿La máquina de "${currentEx.name}" está ocupada o no está disponible? Elige otro del mismo grupo muscular.</p>
+      <p class="guide-sub">¿La máquina de "${escapeHtml(currentEx.name)}" está ocupada o no está disponible? Elige otro del mismo grupo muscular.</p>
       <div id="swapList"></div>
       <button class="btn btn-ghost btn-block" id="swapCancelBtn" style="margin-top:10px;">Cancelar</button>
     </div>`;
@@ -3404,7 +3456,7 @@ function openSwapModal(currentExId, onPick){
     const row = document.createElement('div');
     row.className = 'pick-card';
     row.style.marginBottom = '8px';
-    row.innerHTML = `<div class="pick-info"><div class="pick-name">${v.name}</div><div class="level" style="margin-top:4px;">${v.setsCount}x${v.repsTarget}${v.isTime?' seg':' reps'}</div></div>`;
+    row.innerHTML = `<div class="pick-info"><div class="pick-name">${escapeHtml(v.name)}</div><div class="level" style="margin-top:4px;">${v.setsCount}x${v.repsTarget}${v.isTime?' seg':' reps'}</div></div>`;
     row.onclick = ()=>{ onPick(v.id); modal.remove(); };
     listEl.appendChild(row);
   });
@@ -3478,15 +3530,17 @@ function renderHistoryList(){
   list.innerHTML = '';
   filtered.forEach(h=>{
     const dateStr = new Date(h.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
+    const icon = h.name.startsWith('Carrera') ? '🏃' : h.name.startsWith('WOD') ? '🏋️' : '💪';
     const card = document.createElement('div'); card.className='hist-card';
     card.innerHTML = `
-      <div class="hist-top"><div class="hist-title">${h.name}</div><div class="hist-date">${dateStr}</div></div>
-      ${h.exercises.map(ex=>{
-        if(ex.sets.length===0) return `<div class="hist-ex"><span>${ex.name}</span><span style="color:var(--text-dim)">sin series marcadas</span></div>`;
-        const best = ex.sets[ex.sets.length-1];
-        return `<div class="hist-ex"><span>${ex.name}</span><span>${best.weight>0?best.weight+best.unit+' x ':''}${best.reps} · ${ex.sets.length} series</span></div>`;
+      <div class="hist-top"><div class="hist-title">${icon} ${escapeHtml(h.name)}</div><div class="hist-date">${dateStr}</div></div>
+      ${(h.exercises||[]).map(ex=>{
+        const sets = ex.sets||[];
+        if(sets.length===0) return `<div class="hist-ex"><span>${escapeHtml(ex.name)}</span><span style="color:var(--text-dim)">sin series marcadas</span></div>`;
+        const best = sets[sets.length-1];
+        return `<div class="hist-ex"><span>${escapeHtml(ex.name)}</span><span>${best.weight>0?best.weight+best.unit+' x ':''}${best.reps} · ${sets.length} series</span></div>`;
       }).join('')}
-      ${h.note ? `<div class="hist-ex" style="border-top:1px solid var(--line);"><span style="font-style:italic;color:var(--text-dim);">📝 ${h.note}</span></div>` : ''}`;
+      ${h.note ? `<div class="hist-ex" style="border-top:1px solid var(--line);"><span style="font-style:italic;color:var(--text-dim);">📝 ${escapeHtml(h.note)}</span></div>` : ''}`;
     list.appendChild(card);
   });
 }
@@ -3498,13 +3552,14 @@ function exportHistoryPdf(){
   const rangeLabel = state.historial.month==='todos' ? 'Todo el historial' : new Date(state.historial.month+'-15').toLocaleDateString('es-CL',{month:'long',year:'numeric'});
   const rows = historyToExport.map(h=>{
     const dateStr = new Date(h.date).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
-    const exRows = h.exercises.map(ex=>{
-      if(ex.sets.length===0) return `<tr><td>${ex.name}</td><td colspan="2">Sin series marcadas</td></tr>`;
-      return ex.sets.map((s,i)=>`<tr><td>${i===0?ex.name:''}</td><td>Serie ${i+1}</td><td>${s.weight>0?s.weight+s.unit:'—'} x ${s.reps}</td></tr>`).join('');
+    const exRows = (h.exercises||[]).map(ex=>{
+      const sets = ex.sets||[];
+      if(sets.length===0) return `<tr><td>${escapeHtml(ex.name)}</td><td colspan="2">Sin series marcadas</td></tr>`;
+      return sets.map((s,i)=>`<tr><td>${i===0?escapeHtml(ex.name):''}</td><td>Serie ${i+1}</td><td>${s.weight>0?s.weight+s.unit:'—'} x ${s.reps}</td></tr>`).join('');
     }).join('');
     return `
-      <h3 style="margin:18px 0 4px;font-size:14px;">${h.name} — ${dateStr}</h3>
-      ${h.note ? `<p style="font-size:11px;color:#555;margin:0 0 6px;font-style:italic;">Nota: ${h.note}</p>` : ''}
+      <h3 style="margin:18px 0 4px;font-size:14px;">${escapeHtml(h.name)} — ${dateStr}</h3>
+      ${h.note ? `<p style="font-size:11px;color:#555;margin:0 0 6px;font-style:italic;">Nota: ${escapeHtml(h.note)}</p>` : ''}
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px;">
         <thead><tr style="border-bottom:1px solid #999;"><th style="text-align:left;padding:3px;">Ejercicio</th><th style="text-align:left;padding:3px;">Serie</th><th style="text-align:left;padding:3px;">Peso x Reps</th></tr></thead>
         <tbody>${exRows}</tbody>
@@ -3520,7 +3575,7 @@ function exportHistoryPdf(){
       table{page-break-inside:avoid;}
     </style></head>
     <body>
-      <h1>Historial de entrenamiento — ${userName}</h1>
+      <h1>Historial de entrenamiento — ${escapeHtml(userName)}</h1>
       <p class="sub">Generado el ${new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})} · ${rangeLabel} · ${historyToExport.length} sesiones</p>
       ${rows || '<p>No hay sesiones en este rango.</p>'}
     </body></html>
@@ -3551,7 +3606,7 @@ function renderProgreso(c){
 
     <div class="section-title">Compañero de entrenamiento</div>
     <div class="chart-card">
-      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Comparte tu código para entrenar junto a alguien y comparar su progreso con el tuyo. <b>Importante:</b> agregar el código de alguien solo hace que tú lo veas a él/ella. Para que se vean mutuamente, esa persona también debe ingresar tu código por su lado.</p>
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Comparte tu código para entrenar junto a alguien y comparar su progreso con el tuyo. Al agregar a alguien quedan conectados automáticamente para ambos — no hace falta que la otra persona también ingrese tu código.</p>
       <div style="display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--accent-dim);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
         <span style="font-size:11px;color:var(--text-dim);flex:1;">Tu código de invitación</span>
         <span style="font-size:16px;font-weight:800;color:var(--accent);letter-spacing:1px;">${myInviteCode()}</span>
@@ -3632,7 +3687,7 @@ function renderProgreso(c){
     btn.disabled = true; btn.textContent = '...';
     const res = await addPartnerByCode(input.value);
     btn.disabled = false; btn.textContent = 'Agregar';
-    if(res.ok){ input.value=''; renderPartnersSection(); setupPartnerNotifications(); alert('¡Agregado! Recuerda: para que ustedes dos se vean mutuamente, esa persona también debe ingresar tu código de invitación desde su cuenta.'); }
+    if(res.ok){ input.value=''; renderPartnersSection(); setupPartnerNotifications(); }
     else alert(res.msg);
   };
   if(exercisesWithData.length===0){
@@ -3642,7 +3697,7 @@ function renderProgreso(c){
       const pr = prForExercise(ex.id);
       const valStr = ex.isTime ? `${pr.reps}s` : (Number(pr.weight)>0 ? `${pr.weight}${pr.unit||appData.unit} x ${pr.reps}` : `${pr.reps} reps`);
       const row = document.createElement('div'); row.className='pr-row';
-      row.innerHTML = `<span class="pr-name">${ex.name}</span><span class="pr-value">🏆 ${valStr}</span>`;
+      row.innerHTML = `<span class="pr-name">${escapeHtml(ex.name)}</span><span class="pr-value">🏆 ${valStr}</span>`;
       prList.appendChild(row);
     });
   }
@@ -3658,7 +3713,7 @@ function renderProgreso(c){
     if(!state.progreso.chartExId || !exercisesWithData.find(e=>e.id===state.progreso.chartExId)){
       state.progreso.chartExId = exercisesWithData[0].id;
     }
-    select.innerHTML = exercisesWithData.map(e=>`<option value="${e.id}" ${e.id===state.progreso.chartExId?'selected':''}>${e.name}</option>`).join('');
+    select.innerHTML = exercisesWithData.map(e=>`<option value="${e.id}" ${e.id===state.progreso.chartExId?'selected':''}>${escapeHtml(e.name)}</option>`).join('');
     select.onchange = (e)=>{ state.progreso.chartExId = e.target.value; renderChart(); };
     renderChart();
   }
@@ -3667,13 +3722,16 @@ function renderProgreso(c){
     const log = getProgressLog(ex.id);
     const points = log.map(entry=>({ label: shortDate(entry.date), value: ex.isTime ? entry.reps : (Number(entry.weight)>0 ? entry.weight : entry.reps) }));
     const unitLabel = ex.metricType==='altura' ? 'altura (cm)' : (ex.isTime ? 'segundos' : (log.some(e=>Number(e.weight)>0) ? `peso (${appData.unit})` : 'repeticiones'));
-    document.getElementById('chartCard').innerHTML = `<div class="chart-title">${ex.name} · ${unitLabel}</div>` + svgLineChart(points);
+    document.getElementById('chartCard').innerHTML = `<div class="chart-title">${escapeHtml(ex.name)} · ${unitLabel}</div>` + svgLineChart(points);
   }
 
   // Body weight
   document.getElementById('bwAddBtn').onclick = async ()=>{
+    const bwAddBtn = document.getElementById('bwAddBtn');
+    if(bwAddBtn.disabled) return;
     const val = Number(document.getElementById('bwInput').value);
     if(!val || val<=0){ alert('Ingresa un peso válido.'); return; }
+    bwAddBtn.disabled = true;
     appData.bodyWeight.log.push({ date: new Date().toISOString(), weight: val });
     if(appData.bodyWeight.log.length>30) appData.bodyWeight.log = appData.bodyWeight.log.slice(-30);
     await saveData();
@@ -3704,7 +3762,7 @@ function renderPerfil(c){
     <div class="chart-card" style="display:flex;align-items:center;gap:14px;">
       <div class="user-avatar" id="profileAvatarEl" style="width:56px;height:56px;font-size:18px;"></div>
       <div style="flex:1;">
-        <div style="font-size:16px;font-weight:700;">${p.nombre} ${p.apellido||''}</div>
+        <div style="font-size:16px;font-weight:700;">${escapeHtml(p.nombre)} ${escapeHtml(p.apellido||'')}</div>
         <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">
           ${p.edad?p.edad+' años · ':''}${p.altura?p.altura+' cm':''}
           ${p.objetivo ? ' · '+(objetivoLabel[p.objetivo]||p.objetivo) : ''}
@@ -3907,7 +3965,7 @@ function renderNutricion(c){
   } else {
     todayEntries.forEach(e=>{
       const row = document.createElement('div'); row.className='bw-item'; row.style.marginBottom='6px';
-      row.innerHTML = `<span>${e.name}</span><span>${e.calories} kcal <button data-id="${e.id}" class="btn-danger" style="border:none;background:none;cursor:pointer;font-size:13px;margin-left:6px;">✕</button></span>`;
+      row.innerHTML = `<span>${escapeHtml(e.name)}</span><span>${e.calories} kcal <button data-id="${e.id}" class="btn-danger" style="border:none;background:none;cursor:pointer;font-size:13px;margin-left:6px;">✕</button></span>`;
       row.querySelector('button').onclick = async ()=>{
         appData.nutrition.entries = appData.nutrition.entries.filter(x=>x.id!==e.id);
         await saveData();
@@ -3932,9 +3990,12 @@ function renderNutricion(c){
   }
 
   document.getElementById('nutAddBtn').onclick = async ()=>{
+    const nutAddBtn = document.getElementById('nutAddBtn');
+    if(nutAddBtn.disabled) return;
     const name = document.getElementById('nutName').value.trim();
     const cal = Number(document.getElementById('nutCal').value);
     if(!name || !cal || cal<=0){ alert('Ingresa un nombre y calorías válidas.'); return; }
+    nutAddBtn.disabled = true;
     appData.nutrition.entries.push({ id:'n'+Date.now(), date: new Date().toISOString(), name, calories: cal });
     if(appData.nutrition.entries.length>500) appData.nutrition.entries = appData.nutrition.entries.slice(-500);
     await saveData();
@@ -4065,8 +4126,8 @@ function renderIdeasList(c){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div style="flex:1;">
           ${isImplemented ? `<span class="badge-last" style="margin-bottom:6px;display:inline-block;">✅ Implementada</span>` : ''}
-          <div style="font-size:13.5px;line-height:1.5;">${idea.text}</div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">por ${idea.authorName || 'Usuario'} · ${new Date(idea.createdAt).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}</div>
+          <div style="font-size:13.5px;line-height:1.5;">${escapeHtml(idea.text)}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">por ${escapeHtml(idea.authorName || 'Usuario')} · ${new Date(idea.createdAt).toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}</div>
         </div>
         <button data-vote style="background:${hasVoted?'var(--accent-soft)':'var(--panel-2)'};border:1px solid ${hasVoted?'var(--accent-dim)':'var(--line)'};border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text);text-align:center;min-width:44px;">
           <div style="font-size:14px;">👍</div><div style="font-size:11px;font-weight:700;">${votes.length}</div>
