@@ -480,8 +480,15 @@
 
 <script>
 /* ============ DATA ============ */
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.7.0";
 const CHANGELOG = [
+  { version:"1.7.0", items:[
+    "Nuevo: Plan semanal recomendado según tu nivel (día de pecho, espalda, pierna...).",
+    "Nuevo: Rutinas por grupo muscular y nivel (Pecho/Espalda/Hombro/Brazos/Pierna/Glúteo/Abdomen).",
+    "Nuevo: pestaña ⭐ Mis favoritas para guardar cualquier rutina que te guste, de donde sea.",
+    "Durante el entrenamiento ahora puedes agregar o quitar series de un ejercicio sobre la marcha.",
+    "Confirmación al eliminar una rutina, para evitar borrados accidentales.",
+  ]},
   { version:"1.6.0", items:[
     "Compañero de entrenamiento ahora es automático y mutuo: ya no necesitan agregarse los dos por separado.",
     "Pestaña Nutrición activada (ya existía el registro, faltaba el acceso).",
@@ -892,7 +899,7 @@ let dataLoaded = false;
 let state = {
   tab: "pool",
   pool: { group: "todos", search: "", open: null },
-  rutinas: { view: "list", generated: {}, builderName: "", builderSelected: [], activeSession: null, _builderGroup:"todos", community: null, sessionNote: "" },
+  rutinas: { view: "list", generated: {}, builderName: "", builderSelected: [], activeSession: null, _builderGroup:"todos", community: null, sessionNote: "", muscleFilter: "pecho", generatedMuscle: {}, weekExpanded: false },
   progreso: { chartExId: null, leaderboard: null, monthly: null, activity: null, members: null },
   ideas: null
 };
@@ -1446,8 +1453,18 @@ async function loadData(){
 }
 async function saveData(){
   if(!currentUser) return;
-  try{ await db.collection('users').doc(currentUser.uid).set(appData); }
-  catch(e){ console.error('Error guardando en Firestore', e); alert('No se pudo guardar. Revisa tu conexión a internet.'); }
+  try{
+    await withTimeout(db.collection('users').doc(currentUser.uid).set(appData), 10000);
+  }catch(e){
+    if(e && e.message==='timeout'){
+      // La persistencia offline de Firestore ya dejó el cambio en cola local;
+      // se sincronizará solo cuando vuelva la conexión. No bloqueamos la UI esperando.
+      console.warn('Guardado tardando más de lo normal (sin conexión). Se sincronizará automáticamente.');
+    } else {
+      console.error('Error guardando en Firestore', e);
+      alert('No se pudo guardar. Revisa tu conexión a internet.');
+    }
+  }
 }
 function exportBackup(){
   const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
@@ -1589,6 +1606,81 @@ function generateSportRoutine(sportKey){
   const picked = shuffle(sportPool).slice(0,5).concat(shuffle(generalStrength).slice(0,2));
   const label = SPORTS.find(s=>s.key===sportKey);
   return { name:'Entrenamiento para '+(label?label.label:sportKey), exercises: picked.map(e=>e.id) };
+}
+
+/* ============ RUTINAS POR GRUPO MUSCULAR Y NIVEL (estilo "split" de entrenador) ============ */
+// Subgrupo muscular de cada ejercicio base, para armar rutinas de "día de pecho", "día de pierna", etc.
+// Los ejercicios creados por usuarios (personalizados) no tienen subgrupo y simplemente no aparecen
+// en estas rutinas por músculo — siguen disponibles igual en el Pool y en "Crear mi rutina".
+const MUSCLE_SUBGROUP = {
+  'press-banca':'pecho', 'press-inclinado':'pecho', 'fondos':'pecho', 'push-ups':'pecho', 'pectoral-fly-maquina':'pecho',
+  'remo-barra':'espalda', 'jalon-pecho':'espalda', 'dominadas':'espalda', 'remo-mancuerna':'espalda', 'remo-maquina':'espalda', 'remo-bajo-polea':'espalda', 'remo-polea-pie':'espalda', 'peso-muerto-conv':'espalda',
+  'press-militar':'hombro', 'press-militar-barra':'hombro', 'elev-laterales':'hombro', 'elev-frontal-mancuerna':'hombro', 'manguito-rotador-banda':'hombro',
+  'curl-biceps':'brazos', 'biceps-maquina':'brazos', 'biceps-barra':'brazos', 'extension-triceps':'brazos', 'triceps-polea-recta':'brazos', 'triceps-frances-polea':'brazos',
+  'sentadilla-barra':'pierna', 'sentadilla-goblet':'pierna', 'prensa':'pierna', 'cuadriceps-maquina':'pierna', 'zancadas':'pierna', 'sentadilla-bulgara':'pierna', 'zancada-lateral':'pierna', 'elev-talones':'pierna', 'calf-prensa-gastroc':'pierna',
+  'peso-muerto-rum':'gluteo', 'peso-muerto-sumo':'gluteo', 'hip-thrust':'gluteo', 'standing-hip-thrust':'gluteo', 'polea-patada-gluteo':'gluteo', 'curl-femoral-tumbado':'gluteo', 'monster-walk-banda':'gluteo', 'abductores-maquina':'gluteo', 'aductores-maquina':'gluteo', 'copenhagen-plank':'gluteo',
+  'plancha':'abdomen', 'crunch':'abdomen', 'elev-piernas':'abdomen', 'russian-twist':'abdomen', 'mountain-climbers':'abdomen', 'dead-bug':'abdomen', 'core-antirrotacion':'abdomen', 'toes-to-bar':'abdomen', 'rotacion-tronco-medball':'abdomen',
+};
+const MUSCLE_DAYS = [
+  {key:'pecho', label:'Pecho', icon:'🎯'},
+  {key:'espalda', label:'Espalda', icon:'🦾'},
+  {key:'hombro', label:'Hombro', icon:'🙆'},
+  {key:'brazos', label:'Brazos', icon:'💪'},
+  {key:'pierna', label:'Pierna', icon:'🦵'},
+  {key:'gluteo', label:'Glúteo', icon:'🍑'},
+  {key:'abdomen', label:'Abdomen', icon:'🔥'},
+];
+const MUSCLE_LEVEL_COUNT = {principiante:3, intermedio:4, experto:5};
+function exercisesForMuscle(muscleKey){
+  return allExercises().filter(e=> MUSCLE_SUBGROUP[e.id]===muscleKey);
+}
+function generateMuscleRoutine(muscleKey, levelKey){
+  const tier = LEVEL_TIERS.find(t=>t.key===levelKey);
+  const day = MUSCLE_DAYS.find(d=>d.key===muscleKey);
+  const fullPool = exercisesForMuscle(muscleKey);
+  let pool = fullPool.filter(e=> tier.matches(e.level));
+  if(pool.length < MUSCLE_LEVEL_COUNT[levelKey]) pool = fullPool.slice();
+  const picked = shuffle(pool).slice(0, MUSCLE_LEVEL_COUNT[levelKey]);
+  return { name: `${day.label} · ${tier.title}`, exercises: picked.map(e=>e.id) };
+}
+
+/* ============ PLAN SEMANAL RECOMENDADO ============ */
+// Igual que un entrenador armaría la semana: principiante entrena cuerpo completo con más
+// frecuencia (mejor para aprender técnica y acumular volumen sin sobrecargar un músculo aislado);
+// intermedio pasa a torso/pierna; experto ya tolera un split por grupo muscular tipo "bro split".
+const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const WEEKLY_SPLITS = {
+  principiante: { label:'Cuerpo completo · 3 días/semana', schedule:{
+    1:{type:'fullbody', label:'Cuerpo completo'}, 3:{type:'fullbody', label:'Cuerpo completo'}, 5:{type:'fullbody', label:'Cuerpo completo'}
+  }},
+  intermedio: { label:'Torso / Pierna · 4 días/semana', schedule:{
+    1:{type:'reco', key:'tren-superior', label:'Torso'}, 2:{type:'reco', key:'tren-inferior', label:'Pierna'},
+    4:{type:'reco', key:'tren-superior', label:'Torso'}, 5:{type:'reco', key:'tren-inferior', label:'Pierna'}
+  }},
+  experto: { label:'Split por grupo muscular · 5 días/semana', schedule:{
+    1:{type:'muscle', key:'pecho', label:'Pecho'}, 2:{type:'muscle', key:'espalda', label:'Espalda'},
+    3:{type:'muscle', key:'pierna', label:'Pierna'}, 4:{type:'muscle', key:'hombro', label:'Hombro'},
+    5:{type:'muscle', key:'gluteo', label:'Glúteo'}
+  }},
+};
+function levelKeyFromProfile(){
+  const n = appData.profile && appData.profile.nivel;
+  if(n==='avanzado') return 'experto';
+  if(n==='intermedio') return 'intermedio';
+  return 'principiante';
+}
+function todaysPlanEntry(){
+  const levelKey = levelKeyFromProfile();
+  const split = WEEKLY_SPLITS[levelKey];
+  const dow = new Date().getDay(); // 0=domingo … 6=sábado
+  return { levelKey, split, dow, entry: split.schedule[dow] || null };
+}
+function generateForPlanEntry(entry, levelKey){
+  if(!entry) return null;
+  if(entry.type==='fullbody') return generateLevelRoutine(levelKey);
+  if(entry.type==='reco') return generateRoutine(entry.key);
+  if(entry.type==='muscle') return generateMuscleRoutine(entry.key, levelKey);
+  return null;
 }
 
 function generateComebackRoutine(){
@@ -2638,6 +2730,8 @@ function renderRutinasList(c){
   const neglected = getNeglectedExercises(21,3);
 
   c.innerHTML = `
+    <div class="chart-card" id="weeklyPlanCard" style="margin-bottom:10px;"></div>
+
     ${appData.pendingComeback ? `
     <div class="chart-card" style="margin-bottom:10px;background:linear-gradient(135deg, var(--panel), rgba(224,164,88,0.12));border-color:var(--tag-lower);">
       <div style="font-size:13px;font-weight:700;margin-bottom:4px;">🌱 Bienvenido de vuelta</div>
@@ -2701,7 +2795,17 @@ function renderRutinasList(c){
     </div>` : ''}
 
     <div class="section-title">Rutinas por nivel de experiencia</div><div class="rgrid" id="levelGrid"></div>
+
+    <div class="section-title">Rutinas por grupo muscular</div>
+    <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Elige el músculo del día y tu nivel. Si entrenas menos de 4 días por semana, te va a rendir más combinar esto con las rutinas de cuerpo completo de arriba.</p>
+    <div class="filters" id="muscleFilters" style="margin-bottom:10px;"></div>
+    <div class="rgrid" id="muscleGrid"></div>
+
     <div class="section-title">Rutinas recomendadas</div><div class="rgrid" id="recoGrid"></div>
+
+    <div class="section-title">⭐ Mis favoritas <span class="n" id="favCount"></span></div>
+    <div class="rgrid" id="favoritesGrid" style="margin-top:8px;"></div>
+
     <div class="section-title">Mis rutinas <span class="n">(${appData.customRoutines.length})</span></div>
     <div style="margin-top:8px;"><button class="btn btn-primary btn-block" id="createRoutineBtn">+ Crear mi rutina</button></div>
     <div class="rgrid" id="customGrid" style="margin-top:12px;"></div>
@@ -2816,9 +2920,11 @@ function renderRutinasList(c){
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
+        <button class="btn btn-ghost" data-action="fav" title="Guardar en mis favoritas">⭐</button>
       </div>`;
     card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(routine.name, routine.exercises);
     card.querySelector('[data-action="regen"]').onclick = ()=>{ state.rutinas.generatedLevels[tier.key]=generateLevelRoutine(tier.key); renderRutinasList(c); };
+    card.querySelector('[data-action="fav"]').onclick = async (e)=>{ await saveGeneratedAsFavorite(routine); e.target.textContent='✓'; e.target.disabled=true; };
     levelGrid.appendChild(card);
   });
 
@@ -2834,14 +2940,115 @@ function renderRutinasList(c){
       <div class="rcard-actions">
         <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
         <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
+        <button class="btn btn-ghost" data-action="fav" title="Guardar en mis favoritas">⭐</button>
       </div>`;
     card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(routine.name, routine.exercises);
     card.querySelector('[data-action="regen"]').onclick = ()=>{ state.rutinas.generated[tpl.key]=generateRoutine(tpl.key); renderRutinasList(c); };
+    card.querySelector('[data-action="fav"]').onclick = async (e)=>{ await saveGeneratedAsFavorite(routine); e.target.textContent='✓'; e.target.disabled=true; };
     recoGrid.appendChild(card);
   });
 
+  renderMuscleSection(c);
+  renderFavoritesGrid();
+  renderWeeklyPlanCard(c);
   renderCustomRoutinesGrid();
   renderCommunityRoutines(c);
+}
+async function saveGeneratedAsFavorite(routine){
+  appData.customRoutines.push({ id:'r'+Date.now(), name: routine.name, exercises: routine.exercises.slice(), isFavorite:true });
+  await saveData();
+}
+function renderMuscleSection(c){
+  const filtersEl = document.getElementById('muscleFilters');
+  const grid = document.getElementById('muscleGrid');
+  if(!filtersEl || !grid) return;
+  filtersEl.innerHTML = '';
+  MUSCLE_DAYS.forEach(d=>{
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (state.rutinas.muscleFilter===d.key ? ' active' : '');
+    btn.textContent = `${d.icon} ${d.label}`;
+    btn.onclick = ()=>{ state.rutinas.muscleFilter = d.key; renderMuscleSection(c); };
+    filtersEl.appendChild(btn);
+  });
+  const muscleKey = state.rutinas.muscleFilter;
+  if(!state.rutinas.generatedMuscle[muscleKey]) state.rutinas.generatedMuscle[muscleKey] = {};
+  const cache = state.rutinas.generatedMuscle[muscleKey];
+  grid.innerHTML = '';
+  LEVEL_TIERS.forEach(tier=>{
+    if(!cache[tier.key]) cache[tier.key] = generateMuscleRoutine(muscleKey, tier.key);
+    const routine = cache[tier.key];
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.innerHTML = `
+      <div class="rcard-top"><div><p class="rcard-title">${tier.title}</p><p class="rcard-sub">${escapeHtml(routine.name)}</p></div></div>
+      <ul class="rcard-list">${routine.exercises.map(id=>{const ex=findEx(id);return ex?`<li><span>${escapeHtml(ex.name)}</span><span class="ex-sets">${effSets(ex)}x${effReps(ex)}</span></li>`:'';}).join('')}</ul>
+      <div class="rcard-actions">
+        <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+        <button class="btn btn-ghost" data-action="regen">🔀 Regenerar</button>
+        <button class="btn btn-ghost" data-action="fav" title="Guardar en mis favoritas">⭐</button>
+      </div>`;
+    card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(routine.name, routine.exercises);
+    card.querySelector('[data-action="regen"]').onclick = ()=>{ cache[tier.key]=generateMuscleRoutine(muscleKey, tier.key); renderMuscleSection(c); };
+    card.querySelector('[data-action="fav"]').onclick = async (e)=>{ await saveGeneratedAsFavorite(routine); e.target.textContent='✓'; e.target.disabled=true; };
+    grid.appendChild(card);
+  });
+}
+function renderFavoritesGrid(){
+  const grid = document.getElementById('favoritesGrid');
+  const countEl = document.getElementById('favCount');
+  if(!grid) return;
+  const favs = appData.customRoutines.filter(r=>r.isFavorite);
+  if(countEl) countEl.textContent = `(${favs.length})`;
+  if(favs.length===0){
+    grid.innerHTML = `<div class="empty-cta">Toca la ⭐ en cualquier rutina (por nivel, por músculo o recomendada) para guardarla acá y encontrarla rápido.</div>`;
+    return;
+  }
+  grid.innerHTML = '';
+  favs.forEach(r=>{
+    const validExercises = cleanRoutineExercises(r.exercises);
+    const card = document.createElement('div'); card.className='rcard';
+    card.innerHTML = `
+      <div class="rcard-top"><div><p class="rcard-title">${escapeHtml(r.name)}</p><p class="rcard-sub">${validExercises.length} ejercicios</p></div></div>
+      <ul class="rcard-list">${renderRoutinePreviewList(validExercises)}</ul>
+      <div class="rcard-actions">
+        <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
+        <button class="btn btn-danger" data-action="unfav">⭐ Quitar de favoritas</button>
+      </div>`;
+    card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(r.name, r.exercises);
+    card.querySelector('[data-action="unfav"]').onclick = async ()=>{ r.isFavorite=false; await saveData(); renderFavoritesGrid(); renderCustomRoutinesGrid(); };
+    grid.appendChild(card);
+  });
+}
+function renderWeeklyPlanCard(c){
+  const box = document.getElementById('weeklyPlanCard');
+  if(!box) return;
+  const { levelKey, split, dow, entry } = todaysPlanEntry();
+  const weekRows = [1,2,3,4,5,6,0].map(d=>{
+    const e = split.schedule[d];
+    const isToday = d===dow;
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;${isToday?'font-weight:700;color:var(--accent);':''}">
+      <span>${DAY_NAMES[d]}${isToday?' (hoy)':''}</span><span>${e ? e.label : 'Descanso'}</span>
+    </div>`;
+  }).join('');
+  box.style.background = 'linear-gradient(135deg, var(--panel), var(--accent-soft))';
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;">Plan semanal · ${split.label}</div>
+        <div style="font-size:15px;font-weight:700;margin-top:2px;">${entry ? `Hoy toca: ${entry.label}` : 'Hoy es tu día de descanso 😌'}</div>
+      </div>
+      ${entry ? `<button class="btn btn-primary btn-sm" id="startTodayPlanBtn" style="white-space:nowrap;">Iniciar</button>` : ''}
+    </div>
+    <a id="toggleWeekLink" style="display:inline-block;margin-top:8px;font-size:11.5px;color:var(--text-dim);cursor:pointer;text-decoration:underline;">${state.rutinas.weekExpanded?'Ocultar semana':'Ver semana completa'}</a>
+    ${state.rutinas.weekExpanded ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px;font-size:12.5px;">${weekRows}</div>` : ''}
+  `;
+  if(entry){
+    document.getElementById('startTodayPlanBtn').onclick = ()=>{
+      const routine = generateForPlanEntry(entry, levelKey);
+      if(routine) startWorkout(routine.name, routine.exercises);
+    };
+  }
+  document.getElementById('toggleWeekLink').onclick = ()=>{ state.rutinas.weekExpanded = !state.rutinas.weekExpanded; renderWeeklyPlanCard(c); };
 }
 
 function renderCustomRoutinesGrid(){
@@ -2866,11 +3073,13 @@ function renderCustomRoutinesGrid(){
         <div class="rcard-actions">
           <button class="btn btn-primary" data-action="start">Iniciar rutina</button>
           <button class="btn btn-ghost" data-action="edit">✏️ Editar</button>
+          <button class="btn btn-ghost" data-action="fav" style="${r.isFavorite?'color:var(--gold);':''}">⭐</button>
           <button class="btn btn-ghost" data-action="share">📤 Compartir</button>
           <button class="btn btn-danger" data-action="del">Eliminar</button>
         </div>`;
       card.querySelector('[data-action="start"]').onclick = ()=>startWorkout(r.name, r.exercises);
       card.querySelector('[data-action="edit"]').onclick = ()=> openBuilderForEdit(r);
+      card.querySelector('[data-action="fav"]').onclick = async ()=>{ r.isFavorite = !r.isFavorite; await saveData(); renderCustomRoutinesGrid(); renderFavoritesGrid(); };
       card.querySelector('[data-action="share"]').onclick = async (e)=>{
         const btn = e.target; btn.disabled = true; btn.textContent = 'Compartiendo...';
         try{
@@ -2891,8 +3100,9 @@ function renderCustomRoutinesGrid(){
         }
       };
       card.querySelector('[data-action="del"]').onclick = async ()=>{
+        if(!confirm(`¿Eliminar "${r.name}"? Tu historial de entrenamientos ya registrados no se ve afectado.`)) return;
         appData.customRoutines = appData.customRoutines.filter(x=>x.id!==r.id);
-        await saveData(); renderCustomRoutinesGrid();
+        await saveData(); renderCustomRoutinesGrid(); renderFavoritesGrid();
       };
       customGrid.appendChild(card);
   });
@@ -3340,6 +3550,7 @@ function renderWorkout(c){
           const row = buildSetRow(s, setIdx, ex, ()=>{ renderWorkout(c); }, false);
           setsWrap.appendChild(row);
         });
+        subBox.appendChild(buildSetCountControls(sub.sets, ()=>renderWorkout(c)));
         subsWrap.appendChild(subBox);
         subBox.querySelector(`#swap-sub-${idx}-${subIdx}`).onclick = ()=> openSwapModal(sub.id, (newId)=>{
           sub.id = newId;
@@ -3369,6 +3580,7 @@ function renderWorkout(c){
       const row = buildSetRow(s, setIdx, ex, ()=>{ renderWorkout(c); }, true);
       setsWrap.appendChild(row);
     });
+    box.appendChild(buildSetCountControls(item.sets, ()=>renderWorkout(c)));
     box.querySelector(`#swap-${item.id}-${idx}`).onclick = ()=> openSwapModal(item.id, (newId)=>{
       item.id = newId;
       item.sets = buildSets(newId);
@@ -3479,6 +3691,27 @@ function buildSetRow(s, setIdx, ex, onChange, allowAutoRest){
     const goingTrue = !s.done;
     s.done = goingTrue;
     if(goingTrue && allowAutoRest) startRestTimer(appData.restSeconds || 90);
+    onChange();
+  };
+  return row;
+}
+// Botones para ajustar el número de series de un ejercicio a mitad del entrenamiento
+// (ej: te sientes con más fuerza y agregas una serie extra, o vas corto de tiempo y quitas una).
+// El cambio es solo para esta sesión — no toca los ajustes guardados del ejercicio.
+function buildSetCountControls(sets, onChange){
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-top:2px;';
+  row.innerHTML = `
+    <button class="btn btn-ghost btn-sm" data-add-set style="flex:1;">+ Serie</button>
+    <button class="btn btn-ghost btn-sm" data-del-set style="flex:1;color:var(--danger);" ${sets.length<=1?'disabled':''}>− Quitar serie</button>`;
+  row.querySelector('[data-add-set]').onclick = ()=>{
+    const prev = sets[sets.length-1];
+    sets.push({ weight: prev?prev.weight:0, reps: prev?prev.reps:'', done:false });
+    onChange();
+  };
+  row.querySelector('[data-del-set]').onclick = ()=>{
+    if(sets.length<=1) return;
+    sets.pop();
     onChange();
   };
   return row;
