@@ -480,8 +480,21 @@
 
 <script>
 /* ============ DATA ============ */
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.10.0";
 const CHANGELOG = [
+  { version:"1.10.0", items:[
+    "Nuevo: Mi Plan — elige tu objetivo (ganar músculo, bajar de grasa, glúteo y abdomen, recién empiezo, mantenerme) y la app arma el combo de rutinas semanales por ti.",
+    "\"Recién empiezo\" arranca con menos series mientras afirmas la técnica; \"Bajar de grasa\" prioriza cuerpo completo de mayor frecuencia.",
+  ]},
+  { version:"1.9.0", items:[
+    "Nuevo: sugerencia de progresión durante el entrenamiento — la app te dice si conviene subir peso, sumar una repetición o mantenerte, según cómo te fue la última vez.",
+    "Botón para aplicar la sugerencia con un toque, sin escribir el número a mano.",
+  ]},
+  { version:"1.8.0", items:[
+    "Pool con grupos musculares específicos (Pecho, Espalda, Hombro, Bíceps, Tríceps, Cuádriceps, Glúteo/Isquios, Pantorrilla, Abdomen, Cardio/Funcional) en vez de solo tren superior/inferior.",
+    "Rutinas recomendadas rediseñadas: mejor balance push/pull y prioridad a ejercicios de máquina/polea.",
+    "Cambiar ejercicio durante el entrenamiento ya no sugiere uno que ya estés haciendo en esa rutina.",
+  ]},
   { version:"1.7.0", items:[
     "Nuevo: Plan semanal recomendado según tu nivel (día de pecho, espalda, pierna...).",
     "Nuevo: Rutinas por grupo muscular y nivel (Pecho/Espalda/Hombro/Brazos/Pierna/Glúteo/Abdomen).",
@@ -858,12 +871,30 @@ const GROUPS = [
 ];
 const LABELS = {"tren-superior":"Tren superior","espalda":"Espalda","tren-inferior":"Tren inferior","abdomen":"Abdomen","cuerpo-completo":"Cuerpo completo"};
 
+// Rutinas armadas como las ordenaría un profesor de sala en un gimnasio de máquinas:
+// slots en orden push/pull (o compuesto → accesorio), con preferencia por máquina/polea
+// cuando hay una disponible para ese músculo — así, de arranque, el generador reduce las
+// dudas de "¿qué hago si no hay barra libre?".
 const RECO_TEMPLATES = [
-  {key:"tren-superior", title:"Tren Superior", desc:"Empuje y tracción: pecho, hombro, brazos y espalda.", pull:["tren-superior","espalda"], counts:{"tren-superior":3,"espalda":3}},
-  {key:"tren-inferior", title:"Tren Inferior", desc:"Piernas y glúteos completos.", pull:["tren-inferior"], counts:{"tren-inferior":6}},
-  {key:"abdomen", title:"Abdomen", desc:"Core completo: recto, oblicuos y transverso.", pull:["abdomen"], counts:{"abdomen":5}},
-  {key:"cuerpo-completo", title:"Cuerpo Completo", desc:"Un poco de todo en una sola sesión.", pull:["tren-superior","espalda","tren-inferior","abdomen","cuerpo-completo"], counts:{"tren-superior":1,"espalda":1,"tren-inferior":1,"abdomen":1,"cuerpo-completo":2}},
+  {key:"tren-superior", title:"Tren Superior", desc:"Empuje y tracción balanceados: pecho, espalda, hombro y brazos.", slots:["pecho","espalda","hombro","espalda","biceps","triceps"]},
+  {key:"tren-inferior", title:"Tren Inferior", desc:"Cuádriceps, glúteo/isquios y pantorrilla en una sola sesión.", slots:["pierna","gluteo","pierna","gluteo","pierna","pantorrilla"]},
+  {key:"abdomen", title:"Abdomen", desc:"Core completo: recto, oblicuos y transverso.", slots:["abdomen","abdomen","abdomen","abdomen","abdomen"]},
+  {key:"cuerpo-completo", title:"Cuerpo Completo", desc:"Un poco de todo en una sola sesión.", slots:["pecho","espalda","pierna","gluteo","hombro","abdomen"]},
 ];
+// Equipo principal de cada ejercicio de fuerza — se usa para priorizar máquina/polea
+// cuando el slot lo permite, típico de un gimnasio orientado a máquinas.
+const EQUIPMENT = {
+  'press-banca':'barra','press-inclinado':'mancuerna','fondos':'peso-corporal','push-ups':'peso-corporal','pectoral-fly-maquina':'maquina',
+  'remo-barra':'barra','jalon-pecho':'polea','dominadas':'peso-corporal','remo-mancuerna':'mancuerna','remo-maquina':'maquina','remo-bajo-polea':'polea','remo-polea-pie':'polea','peso-muerto-conv':'barra',
+  'press-militar':'mancuerna','press-militar-barra':'barra','elev-laterales':'mancuerna','elev-frontal-mancuerna':'mancuerna','manguito-rotador-banda':'banda',
+  'curl-biceps':'mancuerna','biceps-maquina':'maquina','biceps-barra':'barra',
+  'extension-triceps':'polea','triceps-polea-recta':'polea','triceps-frances-polea':'polea',
+  'sentadilla-barra':'barra','sentadilla-goblet':'mancuerna','prensa':'maquina','cuadriceps-maquina':'maquina','zancadas':'peso-corporal','sentadilla-bulgara':'mancuerna','zancada-lateral':'peso-corporal','salto-cajon':'peso-corporal','salto-vertical-cmj':'peso-corporal',
+  'peso-muerto-rum':'barra','peso-muerto-sumo':'barra','hip-thrust':'barra','standing-hip-thrust':'polea','polea-patada-gluteo':'polea','curl-femoral-tumbado':'maquina','monster-walk-banda':'banda','abductores-maquina':'maquina','aductores-maquina':'maquina','copenhagen-plank':'peso-corporal','rotacion-cadera-banda':'banda',
+  'elev-talones':'mancuerna','calf-prensa-gastroc':'maquina',
+  'plancha':'peso-corporal','crunch':'peso-corporal','elev-piernas':'peso-corporal','russian-twist':'peso-corporal','mountain-climbers':'peso-corporal','dead-bug':'peso-corporal','core-antirrotacion':'polea','toes-to-bar':'peso-corporal','rotacion-tronco-medball':'balon',
+};
+function isMachineFriendly(ex){ const eq = EQUIPMENT[ex.id]; return eq==='maquina' || eq==='polea'; }
 
 const ACHIEVEMENTS = [
   { id:'first', icon:'🎬', name:'Primera rutina', check:()=> appData.history.length>=1 },
@@ -1498,11 +1529,23 @@ function shuffle(arr){
 let CUSTOM_EXERCISES = [];
 function allExercises(){ return EXERCISES.concat(CUSTOM_EXERCISES); }
 function byGroup(g){ return allExercises().filter(e=>e.group===g); }
-function getVariants(exId, n){
+function getVariants(exId, n, excludeIds){
   n = n || 4;
   const ex = findEx(exId);
   if(!ex) return [];
-  return shuffle(byGroup(ex.group).filter(e=>e.id!==exId)).slice(0,n);
+  const exclude = new Set([exId, ...(excludeIds||[])]);
+  const subgroup = subgroupOf(ex);
+  // Prioriza otros ejercicios del mismo músculo específico (no solo la zona amplia),
+  // para que "cambiar ejercicio" ofrezca un reemplazo real, no cualquier cosa de tren superior.
+  // Las opciones del músculo específico siempre van primero en la lista; solo se completa
+  // con la zona amplia si no alcanzan para llenar las opciones pedidas.
+  const specific = shuffle(allExercises().filter(e=> subgroupOf(e)===subgroup && !exclude.has(e.id)));
+  let pool = specific;
+  if(pool.length < n){
+    const broader = shuffle(allExercises().filter(e=> e.group===ex.group && !exclude.has(e.id) && !specific.includes(e)));
+    pool = specific.concat(broader);
+  }
+  return pool.slice(0,n);
 }
 function findEx(id){ return allExercises().find(e=>e.id===id); }
 async function fetchCustomExercises(){
@@ -1570,10 +1613,13 @@ function shortDate(iso){ return new Date(iso).toLocaleDateString('es-CL',{day:'2
 
 function generateRoutine(templateKey){
   const tpl = RECO_TEMPLATES.find(t=>t.key===templateKey);
-  let picked = [];
-  tpl.pull.forEach(group=>{
-    const n = tpl.counts[group] || 1;
-    picked = picked.concat(shuffle(byGroup(group)).slice(0,n));
+  const picked = [];
+  tpl.slots.forEach(subgroup=>{
+    const pool = allExercises().filter(e=> subgroupOf(e)===subgroup && !picked.includes(e));
+    if(pool.length===0) return;
+    const machineOptions = pool.filter(isMachineFriendly);
+    const candidates = machineOptions.length>0 ? machineOptions : pool;
+    picked.push(shuffle(candidates)[0]);
   });
   return { name: tpl.title, exercises: picked.map(e=>e.id) };
 }
@@ -1608,24 +1654,55 @@ function generateSportRoutine(sportKey){
   return { name:'Entrenamiento para '+(label?label.label:sportKey), exercises: picked.map(e=>e.id) };
 }
 
-/* ============ RUTINAS POR GRUPO MUSCULAR Y NIVEL (estilo "split" de entrenador) ============ */
-// Subgrupo muscular de cada ejercicio base, para armar rutinas de "día de pecho", "día de pierna", etc.
-// Los ejercicios creados por usuarios (personalizados) no tienen subgrupo y simplemente no aparecen
-// en estas rutinas por músculo — siguen disponibles igual en el Pool y en "Crear mi rutina".
+/* ============ TAXONOMÍA MUSCULAR ESPECÍFICA (Pool, rutinas por músculo, cambio de ejercicio) ============ */
+// Subgrupo muscular específico de cada ejercicio base (más preciso que el "group" amplio que
+// se sigue usando para las etiquetas de color y las rutinas recomendadas por zona general).
+// Los ejercicios creados por usuarios no tienen subgrupo específico — en el Pool caen de
+// respaldo a su grupo amplio, y no participan en las rutinas generadas por músculo.
 const MUSCLE_SUBGROUP = {
   'press-banca':'pecho', 'press-inclinado':'pecho', 'fondos':'pecho', 'push-ups':'pecho', 'pectoral-fly-maquina':'pecho',
   'remo-barra':'espalda', 'jalon-pecho':'espalda', 'dominadas':'espalda', 'remo-mancuerna':'espalda', 'remo-maquina':'espalda', 'remo-bajo-polea':'espalda', 'remo-polea-pie':'espalda', 'peso-muerto-conv':'espalda',
   'press-militar':'hombro', 'press-militar-barra':'hombro', 'elev-laterales':'hombro', 'elev-frontal-mancuerna':'hombro', 'manguito-rotador-banda':'hombro',
-  'curl-biceps':'brazos', 'biceps-maquina':'brazos', 'biceps-barra':'brazos', 'extension-triceps':'brazos', 'triceps-polea-recta':'brazos', 'triceps-frances-polea':'brazos',
-  'sentadilla-barra':'pierna', 'sentadilla-goblet':'pierna', 'prensa':'pierna', 'cuadriceps-maquina':'pierna', 'zancadas':'pierna', 'sentadilla-bulgara':'pierna', 'zancada-lateral':'pierna', 'elev-talones':'pierna', 'calf-prensa-gastroc':'pierna',
-  'peso-muerto-rum':'gluteo', 'peso-muerto-sumo':'gluteo', 'hip-thrust':'gluteo', 'standing-hip-thrust':'gluteo', 'polea-patada-gluteo':'gluteo', 'curl-femoral-tumbado':'gluteo', 'monster-walk-banda':'gluteo', 'abductores-maquina':'gluteo', 'aductores-maquina':'gluteo', 'copenhagen-plank':'gluteo',
+  'curl-biceps':'biceps', 'biceps-maquina':'biceps', 'biceps-barra':'biceps',
+  'extension-triceps':'triceps', 'triceps-polea-recta':'triceps', 'triceps-frances-polea':'triceps',
+  'sentadilla-barra':'pierna', 'sentadilla-goblet':'pierna', 'prensa':'pierna', 'cuadriceps-maquina':'pierna', 'zancadas':'pierna', 'sentadilla-bulgara':'pierna', 'zancada-lateral':'pierna', 'salto-cajon':'pierna', 'salto-vertical-cmj':'pierna',
+  'peso-muerto-rum':'gluteo', 'peso-muerto-sumo':'gluteo', 'hip-thrust':'gluteo', 'standing-hip-thrust':'gluteo', 'polea-patada-gluteo':'gluteo', 'curl-femoral-tumbado':'gluteo', 'monster-walk-banda':'gluteo', 'abductores-maquina':'gluteo', 'aductores-maquina':'gluteo', 'copenhagen-plank':'gluteo', 'rotacion-cadera-banda':'gluteo',
+  'elev-talones':'pantorrilla', 'calf-prensa-gastroc':'pantorrilla',
   'plancha':'abdomen', 'crunch':'abdomen', 'elev-piernas':'abdomen', 'russian-twist':'abdomen', 'mountain-climbers':'abdomen', 'dead-bug':'abdomen', 'core-antirrotacion':'abdomen', 'toes-to-bar':'abdomen', 'rotacion-tronco-medball':'abdomen',
+  'burpees':'cardio', 'kb-swing':'cardio', 'thrusters':'cardio', 'sprints-cortos':'cardio', 'sprint-20m-crono':'cardio', 'escalera-agilidad':'cardio', 'cambios-direccion':'cardio', 'sprint-intervalos':'cardio', 'salto-lateral-unipodal':'cardio', 'guardia-postura':'cardio', 'shadow-boxing':'cardio', 'golpes-saco':'cardio', 'esquiva-lateral':'cardio', 'trote-continuo':'cardio', 'repeticiones-cuesta':'cardio', 'skipping-tecnica':'cardio', 'movilidad-tobillo-cadera':'cardio', 'wall-ball':'cardio', 'doble-salto-cuerda':'cardio', 'clean-and-press':'cardio', 'remo-ergometro':'cardio',
 };
+// Etiqueta específica para mostrar, y a qué color/etiqueta amplia se asocia (reutiliza las
+// clases CSS .tag-tren-superior/.tag-espalda/.tag-tren-inferior/.tag-abdomen/.tag-cuerpo-completo
+// que ya existen, así los subgrupos nuevos no requieren estilos nuevos).
+const SUBGROUP_LABELS = {
+  pecho:'Pecho', espalda:'Espalda', hombro:'Hombro', biceps:'Bíceps', triceps:'Tríceps',
+  pierna:'Cuádriceps', gluteo:'Glúteo / Isquios', pantorrilla:'Pantorrilla', abdomen:'Abdomen', cardio:'Cardio / Funcional',
+};
+const SUBGROUP_CSS_PARENT = {
+  pecho:'tren-superior', hombro:'tren-superior', biceps:'tren-superior', triceps:'tren-superior',
+  espalda:'espalda',
+  pierna:'tren-inferior', gluteo:'tren-inferior', pantorrilla:'tren-inferior',
+  abdomen:'abdomen',
+  cardio:'cuerpo-completo',
+};
+function subgroupOf(ex){ return MUSCLE_SUBGROUP[ex.id] || ex.group; }
+function subgroupLabel(ex){ const sg = subgroupOf(ex); return SUBGROUP_LABELS[sg] || LABELS[ex.group]; }
+function subgroupCssClass(ex){ const sg = subgroupOf(ex); return 'tag-' + (SUBGROUP_CSS_PARENT[sg] || ex.group); }
+const POOL_FILTERS = [
+  {key:'todos', label:'Todos'},
+  {key:'pecho', label:'Pecho'}, {key:'espalda', label:'Espalda'}, {key:'hombro', label:'Hombro'},
+  {key:'biceps', label:'Bíceps'}, {key:'triceps', label:'Tríceps'},
+  {key:'pierna', label:'Cuádriceps'}, {key:'gluteo', label:'Glúteo / Isquios'}, {key:'pantorrilla', label:'Pantorrilla'},
+  {key:'abdomen', label:'Abdomen'}, {key:'cardio', label:'Cardio / Funcional'},
+];
+
+/* ============ RUTINAS POR GRUPO MUSCULAR Y NIVEL (estilo "split" de entrenador) ============ */
 const MUSCLE_DAYS = [
   {key:'pecho', label:'Pecho', icon:'🎯'},
   {key:'espalda', label:'Espalda', icon:'🦾'},
   {key:'hombro', label:'Hombro', icon:'🙆'},
-  {key:'brazos', label:'Brazos', icon:'💪'},
+  {key:'biceps', label:'Bíceps', icon:'💪'},
+  {key:'triceps', label:'Tríceps', icon:'🔱'},
   {key:'pierna', label:'Pierna', icon:'🦵'},
   {key:'gluteo', label:'Glúteo', icon:'🍑'},
   {key:'abdomen', label:'Abdomen', icon:'🔥'},
@@ -1640,7 +1717,10 @@ function generateMuscleRoutine(muscleKey, levelKey){
   const fullPool = exercisesForMuscle(muscleKey);
   let pool = fullPool.filter(e=> tier.matches(e.level));
   if(pool.length < MUSCLE_LEVEL_COUNT[levelKey]) pool = fullPool.slice();
-  const picked = shuffle(pool).slice(0, MUSCLE_LEVEL_COUNT[levelKey]);
+  // Mezcla al azar, pero deja las opciones de máquina/polea primero en caso de empate —
+  // como armaría la sesión un profesor pensando en qué equipo suele estar disponible.
+  const sorted = shuffle(pool).sort((a,b)=> (isMachineFriendly(b)?1:0) - (isMachineFriendly(a)?1:0));
+  const picked = sorted.slice(0, MUSCLE_LEVEL_COUNT[levelKey]);
   return { name: `${day.label} · ${tier.title}`, exercises: picked.map(e=>e.id) };
 }
 
@@ -1669,18 +1749,56 @@ function levelKeyFromProfile(){
   if(n==='intermedio') return 'intermedio';
   return 'principiante';
 }
+
+/* ============ MI PLAN (objetivo) — al estilo de los "planes" de apps como Fuertafit ============ */
+// Empaqueta lo que ya existe (split semanal + generadores por músculo/nivel) en un solo
+// selector con nombre y objetivo claro, en vez de que el usuario tenga que combinarlo a mano.
+const GOAL_PLANS = [
+  {key:'ganar-musculo', label:'Ganar músculo', icon:'💪', desc:'El split progresivo de tu nivel, para ir subiendo volumen e intensidad.'},
+  {key:'bajar-grasa', label:'Bajar de grasa', icon:'🔥', desc:'Cuerpo completo con más frecuencia — más sesiones cortas rinden más que pocas muy largas.'},
+  {key:'mantener', label:'Mantenerme', icon:'⚖️', desc:'Rutinas simples de cuerpo completo, pensadas para sostener sin complicarte.'},
+  {key:'gluteo-abdomen', label:'Glúteo y abdomen', icon:'🍑', desc:'La base de tu nivel, con un bloque extra de glúteo/abdomen todos los días.'},
+  {key:'recien-empiezo', label:'Recién empiezo', icon:'🌱', desc:'Progresión suave: menos series por ejercicio mientras aprendes la técnica.'},
+];
+function effectiveGoal(){
+  return appData.selectedPlan || (appData.profile && appData.profile.objetivo) || 'mantener';
+}
+function goalPlan(){
+  return GOAL_PLANS.find(g=>g.key===effectiveGoal()) || GOAL_PLANS.find(g=>g.key==='mantener');
+}
 function todaysPlanEntry(){
-  const levelKey = levelKeyFromProfile();
+  const goal = effectiveGoal();
+  // Bajar de grasa y "recién empiezo" rinden más con cuerpo completo de mayor frecuencia,
+  // sin importar el nivel de experiencia — es una decisión de objetivo, no de técnica.
+  const levelKey = (goal==='bajar-grasa' || goal==='recien-empiezo') ? 'principiante' : levelKeyFromProfile();
   const split = WEEKLY_SPLITS[levelKey];
   const dow = new Date().getDay(); // 0=domingo … 6=sábado
-  return { levelKey, split, dow, entry: split.schedule[dow] || null };
+  return { levelKey, split, dow, entry: split.schedule[dow] || null, goal };
 }
-function generateForPlanEntry(entry, levelKey){
+function generateForPlanEntry(entry, levelKey, goal){
   if(!entry) return null;
-  if(entry.type==='fullbody') return generateLevelRoutine(levelKey);
-  if(entry.type==='reco') return generateRoutine(entry.key);
-  if(entry.type==='muscle') return generateMuscleRoutine(entry.key, levelKey);
-  return null;
+  let routine;
+  if(entry.type==='fullbody') routine = generateLevelRoutine(levelKey);
+  else if(entry.type==='reco') routine = generateRoutine(entry.key);
+  else if(entry.type==='muscle') routine = generateMuscleRoutine(entry.key, levelKey);
+  if(!routine) return null;
+  if(goal==='gluteo-abdomen'){
+    // Bloque extra todos los días, incluso en niveles con split por músculo — así el plan
+    // cumple lo que promete sin importar si hoy tocaba pecho, espalda o lo que sea.
+    const bonus = [];
+    ['gluteo','abdomen'].forEach(sg=>{
+      const pool = allExercises().filter(e=>subgroupOf(e)===sg && !routine.exercises.includes(e.id));
+      if(pool.length) bonus.push(shuffle(pool)[0].id);
+    });
+    if(bonus.length) routine = { name: routine.name + ' + Glúteo/Abdomen', exercises: routine.exercises.concat(bonus) };
+  }
+  return routine;
+}
+function startPlanRoutine(routine, goal){
+  if(!routine) return;
+  // "Recién empiezo" arranca con menos series por ejercicio mientras se afirma la técnica.
+  const exercises = goal==='recien-empiezo' ? routine.exercises.map(id=>({id, setsCount:2})) : routine.exercises;
+  startWorkout(routine.name, exercises);
 }
 
 function generateComebackRoutine(){
@@ -1737,6 +1855,61 @@ function fmtLast(exId, isTime){
   if(!p) return null;
   if(isTime) return `Último: ${p.reps}s`;
   return `Último: ${p.weight>0 ? p.weight+appData.unit+' x ':''}${p.reps} reps`;
+}
+/* ============ SUGERENCIA DE PROGRESIÓN (sobrecarga progresiva) ============ */
+// Como haría un entrenador al mirar tu última sesión: si completaste el techo del rango de
+// reps, sugiere subir peso; si te quedaste corto, sugiere mantener o bajar un poco; si estás
+// en el medio del rango, sugiere sumar una repetición antes de subir peso. Es solo una
+// sugerencia — nunca sobreescribe lo que ya escribiste en el set, el usuario decide.
+function parseRepRange(repsTarget){
+  const range = String(repsTarget).match(/(\d+)\s*-\s*(\d+)/);
+  if(range) return { min:Number(range[1]), max:Number(range[2]) };
+  const single = String(repsTarget).match(/^(\d+)/);
+  if(single) return { min:Number(single[1]), max:Number(single[1]) };
+  return null;
+}
+const WEIGHT_STEP_BY_SUBGROUP = { pecho:2.5, espalda:2.5, hombro:1, biceps:1, triceps:1, pierna:5, gluteo:2.5, pantorrilla:2.5 };
+function weightStepFor(ex){
+  const step = WEIGHT_STEP_BY_SUBGROUP[subgroupOf(ex)] ?? 2.5;
+  return appData.unit==='lb' ? Math.max(2.5, Math.round(step*2.2*2)/2) : step;
+}
+function progressionSuggestion(exId){
+  const ex = findEx(exId);
+  const prev = lastProgress(exId);
+  if(!ex || !prev) return null; // primera vez con este ejercicio, nada que comparar todavía
+  if(ex.metricType==='altura') return null; // salto/altura ya se trata como marca aparte
+
+  if(ex.isTime){
+    const prevSec = Number(prev.reps);
+    if(isNaN(prevSec)) return null;
+    if(ex.betterIsLower){
+      return { text:`Última vez: ${prevSec}s. Hoy intenta bajar a ${Math.max(1, prevSec-1)}s.`, applyWeight:null, applyReps: Math.max(1, prevSec-1) };
+    }
+    return { text:`Última vez: ${prevSec}s. Hoy intenta llegar a ${prevSec+5}s.`, applyWeight:null, applyReps: prevSec+5 };
+  }
+
+  const range = parseRepRange(ex.repsTarget);
+  const repsPrev = Number(prev.reps);
+  const weightPrev = Number(prev.weight)||0;
+  if(!range || isNaN(repsPrev)){
+    return { text:`Última vez: ${weightPrev>0?weightPrev+prev.unit+' x ':''}${prev.reps}. Intenta superar esa marca hoy.`, applyWeight:null, applyReps:null };
+  }
+
+  if(weightPrev<=0){
+    // Ejercicio de peso corporal (push-ups, dominadas): la progresión es en repeticiones.
+    if(repsPrev>=range.max) return { text:`¡Llegaste a ${repsPrev} reps, el techo del rango! Hoy prueba ${repsPrev+1}.`, applyWeight:null, applyReps:repsPrev+1 };
+    return { text:`Última vez: ${repsPrev} reps. Intenta llegar a ${range.max} antes de dificultarlo más.`, applyWeight:null, applyReps:null };
+  }
+
+  if(repsPrev>=range.max){
+    const step = weightStepFor(ex);
+    const nextWeight = Math.round((weightPrev+step)*2)/2;
+    return { text:`Completaste ${repsPrev} reps con ${weightPrev}${prev.unit} (techo del rango). Sube a ${nextWeight}${prev.unit} hoy.`, applyWeight:nextWeight, applyReps:range.min };
+  }
+  if(repsPrev<range.min){
+    return { text:`Te costó llegar a ${range.min} reps con ${weightPrev}${prev.unit}. Mantén el peso o baja un poco hoy.`, applyWeight:null, applyReps:null };
+  }
+  return { text:`Última vez: ${weightPrev}${prev.unit} x ${repsPrev}. Intenta una repetición más antes de subir peso.`, applyWeight:null, applyReps:repsPrev+1 };
 }
 function prForExercise(exId){
   const log = getProgressLog(exId);
@@ -2439,7 +2612,7 @@ function renderPool(c){
     <button class="btn btn-ghost btn-block" id="addExerciseBtn" style="margin-top:14px;">+ Agregar ejercicio personalizado</button>
   `;
   const filtersEl = document.getElementById('poolFilters');
-  GROUPS.forEach(g=>{
+  POOL_FILTERS.forEach(g=>{
     const btn = document.createElement('button');
     btn.className = 'filter-btn' + (st.group===g.key?' active':'');
     btn.textContent = g.label;
@@ -2452,7 +2625,7 @@ function renderPool(c){
 }
 function renderPoolGrid(){
   const st = state.pool;
-  const filtered = allExercises().filter(e=>(st.group==='todos'||e.group===st.group)&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
+  const filtered = allExercises().filter(e=>(st.group==='todos'||subgroupOf(e)===st.group)&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
   document.getElementById('poolCount').textContent = filtered.length + (filtered.length===1?" ejercicio":" ejercicios");
   const grid = document.getElementById('poolGrid'); const empty = document.getElementById('poolEmpty');
   grid.innerHTML = "";
@@ -2467,7 +2640,7 @@ function renderPoolGrid(){
     card.innerHTML = `
       <div class="card-top"><div class="card-title">${item.isCustom?'⭐ ':''}${escapeHtml(item.name)}</div><div class="chevron">▶</div></div>
       <div class="meta-row">
-        <span class="tag tag-${item.group}">${LABELS[item.group]}</span>
+        <span class="tag ${subgroupCssClass(item)}">${subgroupLabel(item)}</span>
         <span class="level">${item.level}</span>
         ${item.isCustom?`<span class="badge-last" style="color:var(--gold);background:rgba(224,184,74,0.14);">por ${escapeHtml(item.authorName)}</span>`:''}
         ${lastBadge?`<span class="badge-last">${lastBadge}</span>`:''}
@@ -3022,7 +3195,8 @@ function renderFavoritesGrid(){
 function renderWeeklyPlanCard(c){
   const box = document.getElementById('weeklyPlanCard');
   if(!box) return;
-  const { levelKey, split, dow, entry } = todaysPlanEntry();
+  const { levelKey, split, dow, entry, goal } = todaysPlanEntry();
+  const plan = goalPlan();
   const weekRows = [1,2,3,4,5,6,0].map(d=>{
     const e = split.schedule[d];
     const isToday = d===dow;
@@ -3032,9 +3206,12 @@ function renderWeeklyPlanCard(c){
   }).join('');
   box.style.background = 'linear-gradient(135deg, var(--panel), var(--accent-soft))';
   box.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+    <div style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;margin-bottom:8px;">Mi plan</div>
+    <div class="filters" id="goalFilters" style="margin-bottom:10px;"></div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">${plan.icon} ${plan.desc}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:10px;">
       <div>
-        <div style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;">Plan semanal · ${split.label}</div>
+        <div style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;">${split.label}</div>
         <div style="font-size:15px;font-weight:700;margin-top:2px;">${entry ? `Hoy toca: ${entry.label}` : 'Hoy es tu día de descanso 😌'}</div>
       </div>
       ${entry ? `<button class="btn btn-primary btn-sm" id="startTodayPlanBtn" style="white-space:nowrap;">Iniciar</button>` : ''}
@@ -3042,10 +3219,18 @@ function renderWeeklyPlanCard(c){
     <a id="toggleWeekLink" style="display:inline-block;margin-top:8px;font-size:11.5px;color:var(--text-dim);cursor:pointer;text-decoration:underline;">${state.rutinas.weekExpanded?'Ocultar semana':'Ver semana completa'}</a>
     ${state.rutinas.weekExpanded ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px;font-size:12.5px;">${weekRows}</div>` : ''}
   `;
+  const goalFiltersEl = document.getElementById('goalFilters');
+  GOAL_PLANS.forEach(g=>{
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (goal===g.key?' active':'');
+    btn.textContent = `${g.icon} ${g.label}`;
+    btn.onclick = ()=>{ appData.selectedPlan = g.key; renderWeeklyPlanCard(c); saveData(); };
+    goalFiltersEl.appendChild(btn);
+  });
   if(entry){
     document.getElementById('startTodayPlanBtn').onclick = ()=>{
-      const routine = generateForPlanEntry(entry, levelKey);
-      if(routine) startWorkout(routine.name, routine.exercises);
+      const routine = generateForPlanEntry(entry, levelKey, goal);
+      startPlanRoutine(routine, goal);
     };
   }
   document.getElementById('toggleWeekLink').onclick = ()=>{ state.rutinas.weekExpanded = !state.rutinas.weekExpanded; renderWeeklyPlanCard(c); };
@@ -3430,6 +3615,15 @@ function sessionProgressPct(session){
   });
   return total===0?0:Math.round((done/total)*100);
 }
+// Todos los ejercicios que ya están en la rutina de hoy, para no sugerirlos de nuevo al cambiar uno.
+function sessionExerciseIds(session){
+  const ids = [];
+  session.exercises.forEach(item=>{
+    if(item.kind==='superset') item.subs.forEach(sub=>ids.push(sub.id));
+    else ids.push(item.id);
+  });
+  return ids;
+}
 function renderWarmupCard(session){
   const box = document.getElementById('warmupCard');
   if(!box) return;
@@ -3544,7 +3738,10 @@ function renderWorkout(c){
         const ex = findEx(sub.id);
         const subBox = document.createElement('div');
         subBox.style.cssText = 'border-top:1px solid var(--line);padding-top:10px;margin-top:10px;';
-        subBox.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(ex.name)} <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;font-weight:600;">▶️ Ver video</a> · <a id="swap-sub-${idx}-${subIdx}" style="color:var(--tag-lower);font-size:11px;font-weight:600;cursor:pointer;">🔄 Cambiar</a></div><div class="setsWrap"></div>`;
+        const subSuggestion = progressionSuggestion(ex.id);
+        subBox.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px;">${escapeHtml(ex.name)} <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;font-weight:600;">▶️ Ver video</a> · <a id="swap-sub-${idx}-${subIdx}" style="color:var(--tag-lower);font-size:11px;font-weight:600;cursor:pointer;">🔄 Cambiar</a></div>
+        ${subSuggestion ? `<div style="font-size:11px;color:var(--accent);margin-bottom:6px;">💡 ${escapeHtml(subSuggestion.text)}</div>` : ''}
+        <div class="setsWrap"></div>`;
         const setsWrap = subBox.querySelector('.setsWrap');
         sub.sets.forEach((s, setIdx)=>{
           const row = buildSetRow(s, setIdx, ex, ()=>{ renderWorkout(c); }, false);
@@ -3556,7 +3753,7 @@ function renderWorkout(c){
           sub.id = newId;
           sub.sets = buildSets(newId);
           renderWorkout(c);
-        });
+        }, sessionExerciseIds(session));
       });
       wrap.querySelector('[data-rest-round]').onclick = ()=> startRestTimer(appData.restSeconds || 90);
       list.appendChild(wrap);
@@ -3568,12 +3765,18 @@ function renderWorkout(c){
     const box = document.createElement('div');
     box.className = 'wex' + (allDone?' complete':'');
     const lastBadge = fmtLast(ex.id, ex.isTime);
+    const suggestion = progressionSuggestion(ex.id);
+    const canApply = suggestion && !item.sets[0].done && (suggestion.applyWeight!=null || suggestion.applyReps!=null);
     box.innerHTML = `
       <div class="wex-top">
         <div class="wex-name">${allDone?'<span class="wex-check">✓</span>':''}${escapeHtml(ex.name)}</div>
         <span class="tag tag-${ex.group}">${LABELS[ex.group]}</span>
       </div>
       <div class="wex-last">${lastBadge || 'Sin registros previos'} · <a href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener" style="color:var(--accent);">▶️ Ver video</a> · <a id="swap-${item.id}-${idx}" style="color:var(--tag-lower);cursor:pointer;">🔄 Cambiar</a></div>
+      ${suggestion ? `<div style="background:var(--accent-soft);border:1px solid var(--accent-dim);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span>💡 ${escapeHtml(suggestion.text)}</span>
+        ${canApply?`<button data-apply-suggestion class="btn btn-ghost btn-sm" style="white-space:nowrap;flex-shrink:0;">Aplicar</button>`:''}
+      </div>` : ''}
       <div class="setsWrap"></div>`;
     const setsWrap = box.querySelector('.setsWrap');
     item.sets.forEach((s, setIdx)=>{
@@ -3581,11 +3784,18 @@ function renderWorkout(c){
       setsWrap.appendChild(row);
     });
     box.appendChild(buildSetCountControls(item.sets, ()=>renderWorkout(c)));
+    if(canApply){
+      box.querySelector('[data-apply-suggestion]').onclick = ()=>{
+        if(suggestion.applyWeight!=null) item.sets[0].weight = suggestion.applyWeight;
+        if(suggestion.applyReps!=null) item.sets[0].reps = suggestion.applyReps;
+        renderWorkout(c);
+      };
+    }
     box.querySelector(`#swap-${item.id}-${idx}`).onclick = ()=> openSwapModal(item.id, (newId)=>{
       item.id = newId;
       item.sets = buildSets(newId);
       renderWorkout(c);
-    });
+    }, sessionExerciseIds(session));
     list.appendChild(box);
   });
 }
@@ -3647,22 +3857,22 @@ function openAddExerciseToWorkoutModal(session, c){
   modal.querySelector('#addExCancelBtn').onclick = ()=> modal.remove();
 }
 
-function openSwapModal(currentExId, onPick){
+function openSwapModal(currentExId, onPick, excludeIds){
   const currentEx = findEx(currentExId);
-  const variants = getVariants(currentExId, 6);
+  const variants = getVariants(currentExId, 6, excludeIds);
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;';
   modal.innerHTML = `
     <div class="guide-card">
       <div class="guide-title">🔄 Cambiar ejercicio</div>
-      <p class="guide-sub">¿La máquina de "${escapeHtml(currentEx.name)}" está ocupada o no está disponible? Elige otro del mismo grupo muscular.</p>
+      <p class="guide-sub">¿La máquina de "${escapeHtml(currentEx.name)}" está ocupada o no está disponible? Elige otro de ${escapeHtml(subgroupLabel(currentEx))} que no estés usando ya en esta rutina.</p>
       <div id="swapList"></div>
       <button class="btn btn-ghost btn-block" id="swapCancelBtn" style="margin-top:10px;">Cancelar</button>
     </div>`;
   document.body.appendChild(modal);
   const listEl = modal.querySelector('#swapList');
   if(variants.length===0){
-    listEl.innerHTML = `<div class="empty" style="padding:10px;">No hay otras opciones registradas en este grupo muscular todavía.</div>`;
+    listEl.innerHTML = `<div class="empty" style="padding:10px;">No hay otras opciones disponibles — ya estás usando todas las alternativas registradas para este músculo.</div>`;
   }
   variants.forEach(v=>{
     const row = document.createElement('div');
