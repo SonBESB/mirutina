@@ -480,8 +480,13 @@
 
 <script>
 /* ============ DATA ============ */
-const APP_VERSION = "1.10.0";
+const APP_VERSION = "1.11.0";
 const CHANGELOG = [
+  { version:"1.11.0", items:[
+    "Nuevo: 13 ejercicios pensados para entrenar en casa (banco, barra Z, mancuernas ajustables, barras de flexión, rueda abdominal, tabla de equilibrio, spinning y elíptica).",
+    "Nuevo: toggle 🏋️ Gimnasio / 🏠 Casa en Mi Plan — al elegir Casa, todas las rutinas generadas y las sugerencias de cambio de ejercicio usan solo tu equipo real.",
+    "Nuevo filtro \"🏠 Solo en casa\" en el Pool.",
+  ]},
   { version:"1.10.0", items:[
     "Nuevo: Mi Plan — elige tu objetivo (ganar músculo, bajar de grasa, glúteo y abdomen, recién empiezo, mantenerme) y la app arma el combo de rutinas semanales por ti.",
     "\"Recién empiezo\" arranca con menos series mientras afirmas la técnica; \"Bajar de grasa\" prioriza cuerpo completo de mayor frecuencia.",
@@ -851,6 +856,64 @@ const EXERCISES = [
    errors:"No tires solo con los brazos; el 60-70% de la potencia del remo viene de las piernas."},
 ];
 
+// Ejercicios pensados específicamente para un setup de casa: banco ajustable con rack y
+// predicador, barra Z con discos, mancuernas ajustables, barras de flexión, rueda abdominal,
+// tabla de equilibrio, bicicleta de spinning y elíptica. No requieren polea ni barra de dominadas.
+const HOME_EXERCISES = [
+  {id:"press-banca-barra-z",name:"Press de banca con barra Z (en rack)",group:"tren-superior",level:"Intermedio",setsCount:4,repsTarget:"8-10",isTime:false,
+   setup:"Acostado en el banco plano, la barra Z apoyada en el rack sobre tu pecho, agarre un poco más ancho que los hombros.",
+   steps:["Saca la barra del rack y bájala controlada hasta la parte media del pecho.","Empuja hacia arriba en línea recta sin trabar los codos de golpe."],
+   errors:"Asegura bien los seguros del rack antes de sacar la barra; en casa no tienes un compañero que te ayude si te quedas atrapado."},
+  {id:"curl-biceps-barra-z",name:"Curl de bíceps con barra Z",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"De pie, sujeta la barra Z por los agarres angulados, codos pegados al torso.",
+   steps:["Sube la barra flexionando el codo, sin balancear la espalda.","Baja controlado hasta extender casi por completo."],
+   errors:"El agarre angulado de la barra Z existe para cuidar la muñeca — no la sujetes como una barra recta."},
+  {id:"curl-predicador-barra-z",name:"Curl de bíceps en banco predicador con barra Z",group:"tren-superior",level:"Intermedio",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Apoya la parte de atrás de los brazos sobre el banco predicador, barra Z tomada con agarre angulado.",
+   steps:["Sube la barra sin despegar los brazos del apoyo.","Baja controlado hasta casi extender, sin rebotar abajo."],
+   errors:"No dejes que el codo se despegue del acolchado; es lo que hace que este ejercicio aísle mejor el bíceps que el curl de pie."},
+  {id:"triceps-frances-barra-z-casa",name:"Press francés con barra Z (tumbado en banco)",group:"tren-superior",level:"Intermedio",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Acostado en el banco plano, barra Z sostenida con los brazos extendidos sobre el pecho.",
+   steps:["Baja la barra doblando solo los codos, llevándola hacia la frente con control.","Extiende de nuevo sin mover los hombros."],
+   errors:"Mantén los codos apuntando al techo durante todo el recorrido; si se abren hacia los lados, pierdes tensión en el tríceps."},
+  {id:"fondos-banco-casa",name:"Fondos en banco (bench dips)",group:"tren-superior",level:"Principiante",setsCount:3,repsTarget:"10-15",isTime:false,
+   setup:"Manos apoyadas en el borde del banco detrás tuyo, piernas extendidas al frente, cadera cerca del banco.",
+   steps:["Baja el cuerpo doblando los codos hasta 90°.","Empuja con los tríceps para volver a subir."],
+   errors:"No dejes que los hombros suban hacia las orejas; si sientes molestia en el hombro, reduce el rango."},
+  {id:"flexiones-barras-giratorias",name:"Flexiones con barras de agarre giratorio",group:"tren-superior",level:"Intermedio",setsCount:3,repsTarget:"10-15",isTime:false,
+   setup:"Coloca las barras giratorias al ancho de los hombros, sujétalas firme, cuerpo en línea recta como una plancha alta.",
+   steps:["Baja el pecho hacia el piso con control, dejando que las manijas roten con la muñeca.","Empuja hasta extender los brazos por completo."],
+   errors:"El agarre giratorio permite más profundidad que una flexión normal — baja solo hasta donde no sientas tirón en el hombro."},
+  {id:"remo-mancuerna-banco-casa",name:"Remo con mancuerna apoyado en banco",group:"espalda",level:"Principiante",setsCount:3,repsTarget:"10-12",isTime:false,
+   setup:"Apoya una rodilla y la mano del mismo lado en el banco, espalda paralela al piso, mancuerna en la mano libre.",
+   steps:["Tira de la mancuerna hacia la cadera, codo pegado al cuerpo.","Baja controlado hasta extender el brazo."],
+   errors:"No rotes el torso para ayudarte con impulso; el movimiento es solo del brazo y el omóplato."},
+  {id:"hip-thrust-banco-barra-z",name:"Hip thrust con banco y barra Z",group:"tren-inferior",level:"Intermedio",setsCount:4,repsTarget:"10-12",isTime:false,
+   setup:"Apoya la espalda alta (omóplatos) en el borde del banco, la barra Z con discos sobre la cadera, pies firmes en el piso.",
+   steps:["Empuja la cadera hacia arriba hasta que el torso quede en línea recta con los muslos.","Baja controlado sin tocar el piso con los glúteos."],
+   errors:"Pon una toalla o pad sobre la cadera — la barra directa sobre el hueso es incómoda y te hace acortar el rango."},
+  {id:"step-up-banco-casa",name:"Step-up con banco",group:"tren-inferior",level:"Principiante",setsCount:3,repsTarget:"10-12 por lado",isTime:false,
+   setup:"De pie frente al banco/step, un pie apoyado completo sobre la superficie.",
+   steps:["Empuja con la pierna de arriba para subir todo el cuerpo sobre el banco.","Baja controlado con la misma pierna, sin dejarte caer."],
+   errors:"Usa un banco a una altura donde la rodilla no pase muy por delante de la punta del pie al subir."},
+  {id:"rueda-abdominal-casa",name:"Rueda abdominal (ab wheel rollout)",group:"abdomen",level:"Avanzado",setsCount:3,repsTarget:"8-12",isTime:false,
+   setup:"De rodillas en el piso (usa un mat o el step con acolchado), sujeta la rueda con ambas manos frente a ti.",
+   steps:["Rueda hacia adelante manteniendo el core apretado y la espalda baja sin arquearse.","Vuelve a la posición inicial usando el abdomen, no tirando con los brazos."],
+   errors:"Si la espalda baja se arquea o pierdes el control, no ruedes tan lejos — es de los ejercicios de core más exigentes que hay."},
+  {id:"equilibrio-tabla-casa",name:"Equilibrio en tabla inestable",group:"abdomen",level:"Intermedio",setsCount:3,repsTarget:"30-45",isTime:true,
+   setup:"De pie sobre la tabla de equilibrio, rodillas ligeramente flexionadas, mirada al frente.",
+   steps:["Mantén el equilibrio activando el core y sin apoyar los pies fuera de la tabla.","Para más dificultad, agrega pequeños movimientos de brazos o sentadillas suaves."],
+   errors:"Ten una pared o silla cerca las primeras veces — perder el equilibrio es normal al empezar."},
+  {id:"spinning-bici-casa",name:"Bicicleta de spinning",group:"cuerpo-completo",level:"Principiante",setsCount:1,repsTarget:"20-40",isTime:true,
+   setup:"Ajusta el asiento a la altura de tu cadera y la resistencia a un nivel cómodo para empezar.",
+   steps:["Pedalea a un ritmo sostenido donde puedas mantener una conversación (zona aeróbica).","Sube la resistencia o el ritmo en bloques de unos minutos para variar la intensidad."],
+   errors:"No dejes la resistencia al mínimo todo el tiempo; sin algo de carga en las piernas, el estímulo es muy bajo."},
+  {id:"eliptica-casa",name:"Elíptica",group:"cuerpo-completo",level:"Principiante",setsCount:1,repsTarget:"15-30",isTime:true,
+   setup:"Sube a la elíptica, pies firmes en los pedales, manos en las barras móviles.",
+   steps:["Mantén un ritmo constante empujando con piernas y brazos a la vez.","Alterna: unos minutos suave, unos minutos más exigente, en vez de un ritmo único todo el tiempo."],
+   errors:"No te apoyes de más en las barras — deja que las piernas hagan el trabajo principal."},
+];
+
 const SPORTS = [
   {key:'ninguno', label:'Ninguno en particular'},
   {key:'tenis', label:'Tenis'},
@@ -893,8 +956,25 @@ const EQUIPMENT = {
   'peso-muerto-rum':'barra','peso-muerto-sumo':'barra','hip-thrust':'barra','standing-hip-thrust':'polea','polea-patada-gluteo':'polea','curl-femoral-tumbado':'maquina','monster-walk-banda':'banda','abductores-maquina':'maquina','aductores-maquina':'maquina','copenhagen-plank':'peso-corporal','rotacion-cadera-banda':'banda',
   'elev-talones':'mancuerna','calf-prensa-gastroc':'maquina',
   'plancha':'peso-corporal','crunch':'peso-corporal','elev-piernas':'peso-corporal','russian-twist':'peso-corporal','mountain-climbers':'peso-corporal','dead-bug':'peso-corporal','core-antirrotacion':'polea','toes-to-bar':'peso-corporal','rotacion-tronco-medball':'balon',
+  // Ejercicios de casa
+  'press-banca-barra-z':'barra','curl-biceps-barra-z':'barra','curl-predicador-barra-z':'barra','triceps-frances-barra-z-casa':'barra',
+  'fondos-banco-casa':'peso-corporal','flexiones-barras-giratorias':'peso-corporal','remo-mancuerna-banco-casa':'mancuerna',
+  'hip-thrust-banco-barra-z':'barra','step-up-banco-casa':'peso-corporal','rueda-abdominal-casa':'peso-corporal','equilibrio-tabla-casa':'peso-corporal',
+  'spinning-bici-casa':'maquina','eliptica-casa':'maquina',
 };
 function isMachineFriendly(ex){ const eq = EQUIPMENT[ex.id]; return eq==='maquina' || eq==='polea'; }
+
+// Ejercicios que se pueden hacer con el equipo específico de casa (banco ajustable + rack +
+// predicador, barra Z con discos, mancuernas ajustables, barras de flexión, rueda abdominal,
+// tabla de equilibrio, bici de spinning, elíptica, y peso corporal). No incluye nada que
+// requiera polea, barra de dominadas o paralelas, porque ese equipo no está disponible en casa.
+const HOME_COMPATIBLE_IDS = new Set([
+  ...HOME_EXERCISES.map(e=>e.id),
+  'press-inclinado','curl-biceps','elev-laterales','elev-frontal-mancuerna','press-militar',
+  'sentadilla-goblet','sentadilla-bulgara','zancadas','zancada-lateral','peso-muerto-rum',
+  'push-ups','plancha','crunch','russian-twist','mountain-climbers','dead-bug','burpees',
+]);
+function isHomeCompatible(ex){ return HOME_COMPATIBLE_IDS.has(ex.id); }
 
 const ACHIEVEMENTS = [
   { id:'first', icon:'🎬', name:'Primera rutina', check:()=> appData.history.length>=1 },
@@ -1527,7 +1607,7 @@ function shuffle(arr){
   return a;
 }
 let CUSTOM_EXERCISES = [];
-function allExercises(){ return EXERCISES.concat(CUSTOM_EXERCISES); }
+function allExercises(){ return EXERCISES.concat(HOME_EXERCISES).concat(CUSTOM_EXERCISES); }
 function byGroup(g){ return allExercises().filter(e=>e.group===g); }
 function getVariants(exId, n, excludeIds){
   n = n || 4;
@@ -1539,10 +1619,11 @@ function getVariants(exId, n, excludeIds){
   // para que "cambiar ejercicio" ofrezca un reemplazo real, no cualquier cosa de tren superior.
   // Las opciones del músculo específico siempre van primero en la lista; solo se completa
   // con la zona amplia si no alcanzan para llenar las opciones pedidas.
-  const specific = shuffle(allExercises().filter(e=> subgroupOf(e)===subgroup && !exclude.has(e.id)));
+  const homeFilter = e=> !isHomeMode() || isHomeCompatible(e);
+  const specific = shuffle(allExercises().filter(e=> subgroupOf(e)===subgroup && !exclude.has(e.id) && homeFilter(e)));
   let pool = specific;
   if(pool.length < n){
-    const broader = shuffle(allExercises().filter(e=> e.group===ex.group && !exclude.has(e.id) && !specific.includes(e)));
+    const broader = shuffle(allExercises().filter(e=> e.group===ex.group && !exclude.has(e.id) && !specific.includes(e) && homeFilter(e)));
     pool = specific.concat(broader);
   }
   return pool.slice(0,n);
@@ -1611,11 +1692,13 @@ function getWarmupFor(session){
 }
 function shortDate(iso){ return new Date(iso).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}); }
 
+function isHomeMode(){ return appData.trainingLocation==='casa'; }
 function generateRoutine(templateKey){
   const tpl = RECO_TEMPLATES.find(t=>t.key===templateKey);
   const picked = [];
   tpl.slots.forEach(subgroup=>{
-    const pool = allExercises().filter(e=> subgroupOf(e)===subgroup && !picked.includes(e));
+    let pool = allExercises().filter(e=> subgroupOf(e)===subgroup && !picked.includes(e));
+    if(isHomeMode()) pool = pool.filter(isHomeCompatible);
     if(pool.length===0) return;
     const machineOptions = pool.filter(isMachineFriendly);
     const candidates = machineOptions.length>0 ? machineOptions : pool;
@@ -1632,8 +1715,9 @@ const LEVEL_TIERS = [
 function generateLevelRoutine(tierKey){
   const tier = LEVEL_TIERS.find(t=>t.key===tierKey);
   const groupsOrder = ['tren-superior','espalda','tren-inferior','abdomen'];
-  let pool = allExercises().filter(e=> tier.matches(e.level));
-  if(pool.length < tier.count) pool = allExercises().slice(); // respaldo si faltan suficientes
+  const basePool = isHomeMode() ? allExercises().filter(isHomeCompatible) : allExercises();
+  let pool = basePool.filter(e=> tier.matches(e.level));
+  if(pool.length < tier.count) pool = basePool.slice(); // respaldo si faltan suficientes
   // intenta cubrir variedad de grupos antes de completar al azar
   let picked = [];
   groupsOrder.forEach(g=>{
@@ -1670,6 +1754,15 @@ const MUSCLE_SUBGROUP = {
   'elev-talones':'pantorrilla', 'calf-prensa-gastroc':'pantorrilla',
   'plancha':'abdomen', 'crunch':'abdomen', 'elev-piernas':'abdomen', 'russian-twist':'abdomen', 'mountain-climbers':'abdomen', 'dead-bug':'abdomen', 'core-antirrotacion':'abdomen', 'toes-to-bar':'abdomen', 'rotacion-tronco-medball':'abdomen',
   'burpees':'cardio', 'kb-swing':'cardio', 'thrusters':'cardio', 'sprints-cortos':'cardio', 'sprint-20m-crono':'cardio', 'escalera-agilidad':'cardio', 'cambios-direccion':'cardio', 'sprint-intervalos':'cardio', 'salto-lateral-unipodal':'cardio', 'guardia-postura':'cardio', 'shadow-boxing':'cardio', 'golpes-saco':'cardio', 'esquiva-lateral':'cardio', 'trote-continuo':'cardio', 'repeticiones-cuesta':'cardio', 'skipping-tecnica':'cardio', 'movilidad-tobillo-cadera':'cardio', 'wall-ball':'cardio', 'doble-salto-cuerda':'cardio', 'clean-and-press':'cardio', 'remo-ergometro':'cardio',
+  // Ejercicios de casa (HOME_EXERCISES)
+  'press-banca-barra-z':'pecho', 'flexiones-barras-giratorias':'pecho',
+  'remo-mancuerna-banco-casa':'espalda',
+  'curl-biceps-barra-z':'biceps', 'curl-predicador-barra-z':'biceps',
+  'triceps-frances-barra-z-casa':'triceps', 'fondos-banco-casa':'triceps',
+  'step-up-banco-casa':'pierna',
+  'hip-thrust-banco-barra-z':'gluteo',
+  'rueda-abdominal-casa':'abdomen', 'equilibrio-tabla-casa':'abdomen',
+  'spinning-bici-casa':'cardio', 'eliptica-casa':'cardio',
 };
 // Etiqueta específica para mostrar, y a qué color/etiqueta amplia se asocia (reutiliza las
 // clases CSS .tag-tren-superior/.tag-espalda/.tag-tren-inferior/.tag-abdomen/.tag-cuerpo-completo
@@ -1709,7 +1802,9 @@ const MUSCLE_DAYS = [
 ];
 const MUSCLE_LEVEL_COUNT = {principiante:3, intermedio:4, experto:5};
 function exercisesForMuscle(muscleKey){
-  return allExercises().filter(e=> MUSCLE_SUBGROUP[e.id]===muscleKey);
+  let pool = allExercises().filter(e=> MUSCLE_SUBGROUP[e.id]===muscleKey);
+  if(isHomeMode()) pool = pool.filter(isHomeCompatible);
+  return pool;
 }
 function generateMuscleRoutine(muscleKey, levelKey){
   const tier = LEVEL_TIERS.find(t=>t.key===levelKey);
@@ -2606,6 +2701,7 @@ function renderPool(c){
   c.innerHTML = `
     <input class="searchbox" id="poolSearch" placeholder="Buscar ejercicio..." value="${st.search.replace(/"/g,'')}">
     <div class="filters" id="poolFilters"></div>
+    <button class="filter-btn" id="homeOnlyToggle" style="margin-bottom:8px;">🏠 Solo en casa</button>
     <div class="count" id="poolCount"></div>
     <div class="grid" id="poolGrid"></div>
     <div class="empty" id="poolEmpty" style="display:none;">No se encontraron ejercicios.</div>
@@ -2619,13 +2715,16 @@ function renderPool(c){
     btn.onclick = ()=>{ st.group = g.key; st.open=null; render(); };
     filtersEl.appendChild(btn);
   });
+  const homeBtn = document.getElementById('homeOnlyToggle');
+  homeBtn.className = 'filter-btn' + (st.homeOnly?' active':'');
+  homeBtn.onclick = ()=>{ st.homeOnly = !st.homeOnly; st.open=null; render(); };
   document.getElementById('poolSearch').oninput = (e)=>{ st.search = e.target.value; st.open=null; renderPoolGrid(); };
   document.getElementById('addExerciseBtn').onclick = ()=> openCustomExerciseModal(c);
   renderPoolGrid();
 }
 function renderPoolGrid(){
   const st = state.pool;
-  const filtered = allExercises().filter(e=>(st.group==='todos'||subgroupOf(e)===st.group)&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
+  const filtered = allExercises().filter(e=>(st.group==='todos'||subgroupOf(e)===st.group)&&(!st.homeOnly||isHomeCompatible(e))&&(!st.search||e.name.toLowerCase().includes(st.search.toLowerCase())));
   document.getElementById('poolCount').textContent = filtered.length + (filtered.length===1?" ejercicio":" ejercicios");
   const grid = document.getElementById('poolGrid'); const empty = document.getElementById('poolEmpty');
   grid.innerHTML = "";
@@ -3206,7 +3305,13 @@ function renderWeeklyPlanCard(c){
   }).join('');
   box.style.background = 'linear-gradient(135deg, var(--panel), var(--accent-soft))';
   box.innerHTML = `
-    <div style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;margin-bottom:8px;">Mi plan</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;">Mi plan</div>
+      <div class="unit-toggle" id="locationToggle">
+        <button class="unit-btn ${!isHomeMode()?'active':''}" data-loc="gimnasio">🏋️ Gimnasio</button>
+        <button class="unit-btn ${isHomeMode()?'active':''}" data-loc="casa">🏠 Casa</button>
+      </div>
+    </div>
     <div class="filters" id="goalFilters" style="margin-bottom:10px;"></div>
     <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">${plan.icon} ${plan.desc}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:10px;">
@@ -3226,6 +3331,16 @@ function renderWeeklyPlanCard(c){
     btn.textContent = `${g.icon} ${g.label}`;
     btn.onclick = ()=>{ appData.selectedPlan = g.key; renderWeeklyPlanCard(c); saveData(); };
     goalFiltersEl.appendChild(btn);
+  });
+  document.getElementById('locationToggle').querySelectorAll('.unit-btn').forEach(b=>{
+    b.onclick = ()=>{
+      appData.trainingLocation = b.dataset.loc;
+      // Limpia las rutinas ya generadas para que se vuelvan a armar respetando el equipo disponible.
+      state.rutinas.generatedLevels = {}; state.rutinas.generated = {}; state.rutinas.generatedMuscle = {};
+      state.rutinas.generatedSport = null;
+      renderRutinasList(c);
+      saveData();
+    };
   });
   if(entry){
     document.getElementById('startTodayPlanBtn').onclick = ()=>{
